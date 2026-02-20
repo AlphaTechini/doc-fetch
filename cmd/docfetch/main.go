@@ -3,7 +3,7 @@ package main
 import (
 	"flag"
 	"log"
-	"os"
+	"strings"
 
 	"github.com/AlphaTechini/doc-fetch/pkg/fetcher"
 )
@@ -22,6 +22,7 @@ func main() {
 		log.Fatal("Error: URL is required\nUsage: doc-fetch --url <base-url> --output <file-path>")
 	}
 
+	// Validate configuration for security
 	config := fetcher.Config{
 		BaseURL:         *url,
 		OutputPath:      *output,
@@ -29,6 +30,10 @@ func main() {
 		Workers:         *concurrent,
 		UserAgent:       *userAgent,
 		GenerateLLMTxt:  *llmTxt,
+	}
+
+	if err := fetcher.ValidateConfig(&config); err != nil {
+		log.Fatalf("Configuration error: %v", err)
 	}
 
 	err := fetcher.Run(config)
