@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
  * Post-install script for doc-fetch-cli
- * Checks if global bin directory is in PATH and provides helpful instructions
+ * Copies the correct platform-specific binary and sets up PATH
  */
 
 const { execSync } = require('child_process');
@@ -9,75 +9,80 @@ const path = require('path');
 const os = require('os');
 const fs = require('fs');
 
-console.log('🎉 DocFetch CLI installed successfully!\n');
+console.log('🎉 DocFetch CLI installing...\n');
 
-// Get npm global prefix
-let globalPrefix;
+const packageDir = path.join(__dirname, '..');
+const platform = os.platform();
+const arch = os.arch();
+
+// Determine which binary to use
+let binaryName;
+let expectedBinary;
+
+if (platform === 'win32') {
+  binaryName = 'doc-fetch.exe';
+  expectedBinary = 'doc-fetch_windows_amd64.exe';
+} else if (platform === 'darwin') {
+  binaryName = 'doc-fetch';
+  expectedBinary = 'doc-fetch_darwin_amd64';
+} else {
+  // Linux
+  binaryName = 'doc-fetch';
+  expectedBinary = arch === 'arm64' ? 'doc-fetch_linux_arm64' : 'doc-fetch_linux_amd64';
+}
+
+const sourcePath = path.join(packageDir, expectedBinary);
+const destPath = path.join(packageDir, binaryName);
+
+console.log(`📦 Platform: ${platform} ${arch}`);
+console.log(`📦 Expected binary: ${expectedBinary}\n`);
+
+// Check if the expected binary exists
+if (!fs.existsSync(sourcePath)) {
+  console.error(`⚠️  Warning: Expected binary not found: ${expectedBinary}`);
+  console.error('');
+  console.error('💡 This might be because:');
+  console.error('   1. The package was published without binaries');
+  console.error('   2. Your platform/architecture is not supported');
+  console.error('');
+  console.error('Supported platforms:');
+  console.error('   - Linux x64 (amd64)');
+  console.error('   - macOS x64 (amd64)');  
+  console.error('   - Windows x64 (amd64)');
+  console.error('');
+  console.error('💡 Workaround: Install from source');
+  console.error('   npm uninstall -g doc-fetch-cli');
+  console.error('   git clone https://github.com/AlphaTechini/doc-fetch.git');
+  console.error('   cd doc-fetch && go build -o doc-fetch ./cmd/docfetch');
+  console.error('   sudo cp doc-fetch /usr/local/bin/');
+  process.exit(1);
+}
+
+// Copy the binary to the expected location
 try {
-    globalPrefix = execSync('npm config get prefix', { encoding: 'utf8' }).trim();
+  fs.copyFileSync(sourcePath, destPath);
+  
+  // Make executable on Unix-like systems
+  if (platform !== 'win32') {
+    fs.chmodSync(destPath, 0o755);
+  }
+  
+  console.log(`✅ Binary installed: ${binaryName}`);
 } catch (error) {
-    console.error('⚠️  Could not determine npm global prefix');
-    globalPrefix = null;
+  console.error(`❌ Failed to install binary: ${error.message}`);
+  process.exit(1);
 }
 
-if (globalPrefix) {
-    const binDir = path.join(globalPrefix, 'bin');
-    const isWindows = os.platform() === 'win32';
-    
-    console.log(`📦 Installed to: ${binDir}\n`);
-    
-    // Check if bin directory is in PATH
-    const pathEnv = process.env.PATH || '';
-    const pathDirs = pathEnv.split(isWindows ? ';' : ':');
-    const isInPath = pathDirs.some(dir => path.resolve(dir) === path.resolve(binDir));
-    
-    if (!isInPath) {
-        console.log('⚠️  WARNING: Global bin directory is not in your PATH!\n');
-        console.log('To use doc-fetch-cli, add this directory to your PATH:\n');
-        console.log(`   ${binDir}\n`);
-        
-        // Provide platform-specific instructions
-        const shell = process.env.SHELL || '/bin/bash';
-        const isZsh = shell.includes('zsh');
-        const isBash = shell.includes('bash');
-        
-        console.log('Quick fix:\n');
-        
-        if (isWindows) {
-            console.log('1. Open System Properties → Environment Variables');
-            console.log('2. Edit PATH variable');
-            console.log('3. Add this path:');
-            console.log(`   ${binDir}`);
-            console.log('4. Restart your terminal\n');
-        } else if (isZsh) {
-            console.log('Add this to your ~/.zshrc:');
-            console.log(`   export PATH="${binDir}:$PATH"\n`);
-            console.log('Then run: source ~/.zshrc\n');
-        } else if (isBash) {
-            console.log('Add this to your ~/.bashrc or ~/.bash_profile:');
-            console.log(`   export PATH="${binDir}:$PATH"\n`);
-            console.log('Then run: source ~/.bashrc\n');
-        }
-        
-        console.log('Alternative: Use npx without installing globally\n');
-        console.log('   npx doc-fetch-cli --url https://docs.example.com --output docs.md\n');
-    } else {
-        console.log('✅ Global bin directory is in your PATH\n');
-        console.log('You can now use doc-fetch-cli!\n');
-        console.log('Example usage:');
-        console.log('   doc-fetch --url https://docs.python.org/3 --output docs.md --llm-txt\n');
-        
-        // Test if the command works
-        try {
-            execSync('doc-fetch --version', { encoding: 'utf8', stdio: 'pipe' });
-            console.log('✅ Command verified working!\n');
-        } catch (error) {
-            console.log('⚠️  Command not found in current shell session.\n');
-            console.log('Try running: hash -r  (to clear command cache)\n');
-            console.log('Or restart your terminal.\n');
-        }
-    }
+// Verify installation
+try {
+  const result = execSync(`"${destPath}" --help`, { encoding: 'utf8', stdio: ['pipe', 'pipe', 'ignore'] });
+  console.log('✅ Binary verified working\n');
+} catch (error) {
+  console.error('⚠️  Warning: Could not verify binary execution');
+  console.error(`   Error: ${error.message}\n`);
 }
 
-console.log('📚 Documentation: https://github.com/AlphaTechini/doc-fetch\n');
-console.log('✨ Pro tip: Use --llm-txt flag to generate AI-friendly index files!\n');
+console.log('✨ DocFetch CLI installed successfully!\n');
+console.log('Usage:');
+console.log('   doc-fetch --url https://docs.example.com --output docs.md\n');
+console.log('Pro tip: Use --llm-txt flag to generate AI-friendly index files!\n');

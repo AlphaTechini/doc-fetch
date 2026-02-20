@@ -1,0 +1,33 @@
+# Go build artifacts (keep the main binary)
+doc-fetch_darwin_amd64
+doc-fetch_windows_amd64.exe
+
+# Python package files
+dist/
+build/
+*.egg-info/
+doc_fetch/
+setup.py
+pyproject.toml
+
+# Development files
+*.go
+cmd/
+pkg/
+internal/
+
+# Documentation (keep README)
+CONTRIBUTING.md
+SECURITY.md
+docs/
+examples/
+
+# Git files
+.git/
+.gitignore
+
+# Test files
+*_test.go
+
+# Misc
+go.sum
