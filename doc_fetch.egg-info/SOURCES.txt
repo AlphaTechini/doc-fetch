@@ -1,4 +1,9 @@
+.npmignore
+CHANGELOG-v2.md
 CONTRIBUTING.md
+CROSS-PLATFORM-FIXES.md
+INSTALLATION-FIX.md
+QUICK-FIX-WINDOWS.md
 README.md
 SECURITY.md
 doc-fetch
@@ -26,6 +31,7 @@ doc_fetch.egg-info/top_level.txt
 docs/usage.md
 examples/golang-example.sh
 pkg/fetcher/classifier.go
+pkg/fetcher/content_grouper.go
 pkg/fetcher/describer.go
 pkg/fetcher/extract_nav.go
 pkg/fetcher/fetcher.go
@@ -34,3 +40,4 @@ pkg/fetcher/html2md.go
 pkg/fetcher/llmtxt.go
 pkg/fetcher/validator.go
 pkg/fetcher/writer.go
+scripts/verify-binaries.js

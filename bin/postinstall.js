@@ -17,16 +17,16 @@ const arch = os.arch();
 // Define binary names to search for (in priority order)
 let searchNames = [];
 if (platform === 'win32') {
-  searchNames = ['doc-fetch.exe', 'doc-fetch_windows_amd64.exe'];
+  searchNames = ['doc-fetch_windows_amd64.exe', 'doc-fetch.exe'];
 } else if (platform === 'darwin') {
   searchNames = arch === 'arm64' 
-    ? ['doc-fetch', 'doc-fetch_darwin_arm64', 'doc-fetch_darwin_amd64']
-    : ['doc-fetch', 'doc-fetch_darwin_amd64', 'doc-fetch_darwin_arm64'];
+    ? ['doc-fetch_darwin_arm64', 'doc-fetch_darwin_amd64', 'doc-fetch']
+    : ['doc-fetch_darwin_amd64', 'doc-fetch_darwin_arm64', 'doc-fetch'];
 } else {
   // Linux
   searchNames = arch === 'arm64'
-    ? ['doc-fetch', 'doc-fetch_linux_arm64', 'doc-fetch_linux_amd64']
-    : ['doc-fetch', 'doc-fetch_linux_amd64', 'doc-fetch_linux_arm64'];
+    ? ['doc-fetch_linux_arm64', 'doc-fetch_linux_amd64', 'doc-fetch']
+    : ['doc-fetch_linux_amd64', 'doc-fetch_linux_arm64', 'doc-fetch'];
 }
 
 console.log(`📦 Platform: ${platform} ${arch}`);

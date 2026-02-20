@@ -255,7 +255,8 @@ func (cg *ContentGrouper) humanize(text string) string {
 
 // PageTypeExtractor identifies the type of documentation page
 type PageTypeExtractor struct {
-	patterns map[string]*regexp.Regexp
+	patterns     map[string]*regexp.Regexp
+	descriptions map[string]string
 }
 
 // PageTypeInfo holds extracted page information
