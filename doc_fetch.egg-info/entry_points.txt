@@ -1,0 +1,2 @@
+[console_scripts]
+doc-fetch = doc_fetch.cli:main
