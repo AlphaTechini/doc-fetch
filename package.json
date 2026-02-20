@@ -1,6 +1,6 @@
 {
   "name": "doc-fetch-cli",
-  "version": "1.1.1",
+  "version": "1.1.2",
   "description": "Dynamic documentation fetching CLI that converts entire documentation sites to single markdown files for AI/LLM consumption",
   "bin": {
     "doc-fetch": "./bin/doc-fetch.js"
@@ -12,7 +12,14 @@
     "type": "git",
     "url": "https://github.com/AlphaTechini/doc-fetch.git"
   },
-  "keywords": ["documentation", "ai", "llm", "markdown", "crawler", "security"],
+  "keywords": [
+    "documentation",
+    "ai",
+    "llm",
+    "markdown",
+    "crawler",
+    "security"
+  ],
   "author": "AlphaTechini",
   "license": "MIT"
 }
