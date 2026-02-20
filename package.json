@@ -1,38 +1,18 @@
 {
   "name": "doc-fetch",
   "version": "1.0.0",
-  "description": "Dynamic documentation fetching CLI that converts entire documentation sites into single, AI-friendly markdown files with LLM.txt index generation",
-  "main": "index.js",
+  "description": "Dynamic documentation fetching CLI that converts entire documentation sites to single markdown files for AI/LLM consumption",
   "bin": {
     "doc-fetch": "./bin/doc-fetch.js"
   },
   "scripts": {
-    "postinstall": "node ./bin/install.js",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "postinstall": "node ./bin/install.js"
   },
   "repository": {
     "type": "git",
     "url": "https://github.com/AlphaTechini/doc-fetch.git"
   },
-  "keywords": [
-    "documentation",
-    "ai",
-    "llm",
-    "markdown",
-    "crawler",
-    "rag",
-    "vector-database",
-    "agent",
-    "llm-txt",
-    "documentation-fetcher"
-  ],
+  "keywords": ["documentation", "ai", "llm", "markdown", "crawler", "security"],
   "author": "AlphaTechini",
-  "license": "MIT",
-  "bugs": {
-    "url": "https://github.com/AlphaTechini/doc-fetch/issues"
-  },
-  "homepage": "https://github.com/AlphaTechini/doc-fetch#readme",
-  "engines": {
-    "node": ">=14.0.0"
-  }
+  "license": "MIT"
 }
