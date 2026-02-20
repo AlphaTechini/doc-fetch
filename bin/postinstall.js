@@ -76,33 +76,46 @@ try {
 }
 console.log('');
 
-// Smart detection: If we found a binary that works, use it!
-if (!hasPlatformBinary && foundBinary && fs.existsSync(path.join(packageDir, foundBinary))) {
-  console.log(`✅ Found compatible binary: ${foundBinary}`);
-  console.log(`📋 Copying: ${foundBinary} → ${binaryName}`);
-  
-  try {
-    fs.copyFileSync(path.join(packageDir, foundBinary), path.join(packageDir, binaryName));
+// Smart detection: Copy platform binary to generic name if needed
+if (foundBinary && fs.existsSync(path.join(packageDir, foundBinary))) {
+  // Check if we need to copy (found binary != expected generic name)
+  if (foundBinary !== binaryName) {
+    console.log(`✅ Found platform binary: ${foundBinary}`);
+    console.log(`📋 Copying to: ${binaryName}`);
     
-    if (platform !== 'win32') {
-      fs.chmodSync(path.join(packageDir, binaryName), 0o755);
-    }
-    
-    console.log(`✅ Binary installed successfully!\n`);
-    
-    // Verify it works
     try {
+      fs.copyFileSync(path.join(packageDir, foundBinary), path.join(packageDir, binaryName));
+      
+      if (platform !== 'win32') {
+        fs.chmodSync(path.join(packageDir, binaryName), 0o755);
+      }
+      
+      console.log(`✅ Binary installed successfully!\n`);
+      
+      // Verify it works
       const testPath = path.join(packageDir, binaryName);
       if (fs.existsSync(testPath)) {
         console.log('✨ Installation complete! You can now use: doc-fetch\n');
         return; // Success!
       }
-    } catch (e) {
-      // Continue to error handling
+    } catch (copyError) {
+      console.error(`⚠️  Copy failed: ${copyError.message}`);
+      console.error('');
+      console.error('💡 Manual fix:');
+      console.error(`   cd "${packageDir}"`);
+      if (platform === 'win32') {
+        console.error(`   copy "${foundBinary}" "${binaryName}"`);
+      } else {
+        console.error(`   cp "${foundBinary}" "${binaryName}"`);
+        console.error(`   chmod +x "${binaryName}"`);
+      }
+      process.exit(1);
     }
-  } catch (copyError) {
-    console.error(`⚠️  Copy failed: ${copyError.message}`);
-    // Continue to error handling
+  } else {
+    // Binary already has correct name
+    console.log(`✅ Binary already correctly named: ${binaryName}\n`);
+    console.log('✨ Installation complete! You can now use: doc-fetch\n');
+    return;
   }
 }
 
