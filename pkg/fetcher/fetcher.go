@@ -14,11 +14,12 @@ import (
 
 // Config holds the configuration for the documentation fetcher
 type Config struct {
-	BaseURL    string
-	OutputPath string
-	MaxDepth   int
-	Workers    int
-	UserAgent  string
+	BaseURL         string
+	OutputPath      string
+	MaxDepth        int
+	Workers         int
+	UserAgent       string
+	GenerateLLMTxt  bool
 }
 
 // Page represents a fetched documentation page
@@ -27,6 +28,14 @@ type Page struct {
 	Title   string
 	Content string
 	Links   []string
+}
+
+// LLMTxtEntry represents an entry in the llm.txt file
+type LLMTxtEntry struct {
+	Type        string
+	Title       string
+	URL         string
+	Description string
 }
 
 // Run executes the documentation fetching process
@@ -40,6 +49,7 @@ func Run(config Config) error {
 	// Create channel for pages and results
 	pagesChan := make(chan *Page, config.Workers*2)
 	resultsChan := make(chan string, config.Workers*2)
+	var llmEntries []LLMTxtEntry
 	
 	// Start worker goroutines
 	var wg sync.WaitGroup
@@ -47,7 +57,7 @@ func Run(config Config) error {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			worker(config, pagesChan, resultsChan, &mutex, visited)
+			worker(config, pagesChan, resultsChan, &mutex, visited, &llmEntries)
 		}()
 	}
 	
@@ -62,11 +72,27 @@ func Run(config Config) error {
 	}()
 	
 	// Collect results and write to file
-	return writeResults(config.OutputPath, resultsChan)
+	err := writeResults(config.OutputPath, resultsChan)
+	if err != nil {
+		return err
+	}
+	
+	// Generate LLM.txt if requested
+	if config.GenerateLLMTxt {
+		llmTxtPath := strings.TrimSuffix(config.OutputPath, ".md") + ".llm.txt"
+		err = GenerateLLMTxt(llmEntries, llmTxtPath)
+		if err != nil {
+			log.Printf("Warning: Failed to generate llm.txt: %v", err)
+		} else {
+			log.Printf("LLM.txt generated: %s", llmTxtPath)
+		}
+	}
+	
+	return nil
 }
 
 // worker processes pages from the channel
-func worker(config Config, pagesChan <-chan *Page, resultsChan chan<- string, mutex *sync.Mutex, visited map[string]bool) {
+func worker(config Config, pagesChan <-chan *Page, resultsChan chan<- string, mutex *sync.Mutex, visited map[string]bool, llmEntries *[]LLMTxtEntry) {
 	client := &http.Client{
 		Timeout: 30 * time.Second,
 	}
@@ -78,7 +104,7 @@ func worker(config Config, pagesChan <-chan *Page, resultsChan chan<- string, mu
 			continue
 		}
 		visited[page.URL] = true
-		mutex.Unlock()
+		mutex.Unlock
 		
 		log.Printf("Fetching: %s", page.URL)
 		
@@ -124,6 +150,24 @@ func worker(config Config, pagesChan <-chan *Page, resultsChan chan<- string, mu
 		
 		// Send result to output
 		resultsChan <- fmt.Sprintf("## %s\n\n%s\n\n---\n\n", title, content)
+		
+		// Generate LLM.txt entry if requested
+		if config.GenerateLLMTxt {
+			cleanTitle := CleanTitle(title)
+			entryType := ClassifyPage(page.URL, cleanTitle)
+			description := ExtractDescription(content)
+			
+			entry := LLMTxtEntry{
+				Type:        entryType,
+				Title:       cleanTitle,
+				URL:         page.URL,
+				Description: description,
+			}
+			
+			mutex.Lock()
+			*llmEntries = append(*llmEntries, entry)
+			mutex.Unlock()
+		}
 		
 		// Extract links for further crawling (limited depth logic would go here)
 		// For MVP, we'll just fetch the main page
