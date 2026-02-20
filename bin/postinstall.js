@@ -41,6 +41,7 @@ console.log(`📦 Will copy to: ${binaryName}\n`);
 // List all available binaries for debugging
 console.log('📋 Available binaries in package:');
 let hasPlatformBinary = false;
+let foundBinary = null;
 try {
   const files = fs.readdirSync(packageDir);
   const binaries = files.filter(f => f.includes('doc-fetch') && !f.endsWith('.js'));
@@ -50,10 +51,22 @@ try {
     binaries.forEach(file => {
       const stats = fs.statSync(path.join(packageDir, file));
       const size = (stats.size / 1024 / 1024).toFixed(2);
-      const isCorrect = file === expectedBinary || file === binaryName;
+      
+      // Check if this is the correct binary for current platform
+      let isCorrect = false;
+      if (platform === 'win32' && file.endsWith('.exe')) {
+        isCorrect = true;
+        foundBinary = file;
+      } else if (platform !== 'win32' && !file.endsWith('.exe') && 
+                 (file === 'doc-fetch' || file.includes(`_${platform}_`))) {
+        isCorrect = true;
+        foundBinary = file;
+      }
+      
       const marker = isCorrect ? '✅' : 'ℹ️ ';
       console.log(`   ${marker} ${file} (${size} MB)`);
-      if (file === expectedBinary) {
+      
+      if (isCorrect && file === expectedBinary) {
         hasPlatformBinary = true;
       }
     });
@@ -63,10 +76,41 @@ try {
 }
 console.log('');
 
-// Extra validation: Check if platform binary exists
-if (!hasPlatformBinary && !fs.existsSync(sourcePath)) {
-  console.error('⚠️  CRITICAL: Platform binary missing!');
-  console.error(`   Expected: ${expectedBinary}`);
+// Smart detection: If we found a binary that works, use it!
+if (!hasPlatformBinary && foundBinary && fs.existsSync(path.join(packageDir, foundBinary))) {
+  console.log(`✅ Found compatible binary: ${foundBinary}`);
+  console.log(`📋 Copying: ${foundBinary} → ${binaryName}`);
+  
+  try {
+    fs.copyFileSync(path.join(packageDir, foundBinary), path.join(packageDir, binaryName));
+    
+    if (platform !== 'win32') {
+      fs.chmodSync(path.join(packageDir, binaryName), 0o755);
+    }
+    
+    console.log(`✅ Binary installed successfully!\n`);
+    
+    // Verify it works
+    try {
+      const testPath = path.join(packageDir, binaryName);
+      if (fs.existsSync(testPath)) {
+        console.log('✨ Installation complete! You can now use: doc-fetch\n');
+        return; // Success!
+      }
+    } catch (e) {
+      // Continue to error handling
+    }
+  } catch (copyError) {
+    console.error(`⚠️  Copy failed: ${copyError.message}`);
+    // Continue to error handling
+  }
+}
+
+// If we get here, something really went wrong
+if (!fs.existsSync(sourcePath) && !hasPlatformBinary && !foundBinary) {
+  console.error('⚠️  CRITICAL: No compatible binary found!');
+  console.error(`   Searched for: ${expectedBinary}`);
+  console.error(`   Found instead: ${foundBinary || 'nothing compatible'}`);
   console.error('');
   console.error('💡 This is a packaging error - the NPM package was published without your platform binary.');
   console.error('');
