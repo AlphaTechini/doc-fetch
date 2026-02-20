@@ -1,6 +1,6 @@
 {
   "name": "doc-fetch-cli",
-  "version": "1.1.4",
+  "version": "1.1.5",
   "description": "Dynamic documentation fetching CLI that converts entire documentation sites to single markdown files for AI/LLM consumption",
   "bin": {
     "doc-fetch": "./bin/doc-fetch.js"
