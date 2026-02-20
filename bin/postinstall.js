@@ -35,11 +35,24 @@ const sourcePath = path.join(packageDir, expectedBinary);
 const destPath = path.join(packageDir, binaryName);
 
 console.log(`📦 Platform: ${platform} ${arch}`);
-console.log(`📦 Expected binary: ${expectedBinary}\n`);
+console.log(`📦 Expected binary: ${expectedBinary}`);
+console.log(`📦 Will copy to: ${binaryName}\n`);
 
 // Check if the expected binary exists
 if (!fs.existsSync(sourcePath)) {
-  console.error(`⚠️  Warning: Expected binary not found: ${expectedBinary}`);
+  console.error(`⚠️  CRITICAL: Expected binary not found at: ${sourcePath}`);
+  console.error('');
+  console.error('💡 Listing package contents:');
+  try {
+    const files = fs.readdirSync(packageDir);
+    files.forEach(file => {
+      if (file.includes('doc-fetch')) {
+        console.error(`   📄 ${file}`);
+      }
+    });
+  } catch (e) {
+    console.error(`   Could not list directory: ${e.message}`);
+  }
   console.error('');
   console.error('💡 This might be because:');
   console.error('   1. The package was published without binaries');
@@ -54,22 +67,48 @@ if (!fs.existsSync(sourcePath)) {
   console.error('   npm uninstall -g doc-fetch-cli');
   console.error('   git clone https://github.com/AlphaTechini/doc-fetch.git');
   console.error('   cd doc-fetch && go build -o doc-fetch ./cmd/docfetch');
-  console.error('   sudo cp doc-fetch /usr/local/bin/');
+  if (platform === 'win32') {
+    console.error('   copy doc-fetch.exe %APPDATA%\\npm\\node_modules\\doc-fetch-cli\\');
+  } else {
+    console.error('   sudo cp doc-fetch /usr/local/bin/');
+  }
   process.exit(1);
 }
 
+console.log(`✅ Found source binary: ${expectedBinary}`);
+
 // Copy the binary to the expected location
 try {
+  console.log(`📋 Copying: ${expectedBinary} → ${binaryName}`);
   fs.copyFileSync(sourcePath, destPath);
+  console.log(`✅ Copy successful`);
+  
+  // Verify the destination exists
+  if (!fs.existsSync(destPath)) {
+    throw new Error('Destination file does not exist after copy');
+  }
   
   // Make executable on Unix-like systems
   if (platform !== 'win32') {
     fs.chmodSync(destPath, 0o755);
+    console.log(`✅ Set executable permissions`);
+  } else {
+    console.log(`ℹ️  Windows: No chmod needed`);
   }
   
-  console.log(`✅ Binary installed: ${binaryName}`);
+  console.log(`\n✅ Binary installed: ${binaryName}`);
 } catch (error) {
-  console.error(`❌ Failed to install binary: ${error.message}`);
+  console.error(`\n❌ CRITICAL: Failed to install binary!`);
+  console.error(`   Source: ${sourcePath}`);
+  console.error(`   Destination: ${destPath}`);
+  console.error(`   Error: ${error.message}`);
+  console.error('');
+  console.error('💡 Manual fix:');
+  console.error(`   1. Navigate to: ${packageDir}`);
+  console.error(`   2. Rename: ${expectedBinary} → ${binaryName}`);
+  if (platform !== 'win32') {
+    console.error(`   3. Run: chmod +x ${binaryName}`);
+  }
   process.exit(1);
 }
 
