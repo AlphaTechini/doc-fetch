@@ -3,7 +3,9 @@ package fetcher
 import (
 	"fmt"
 	"log"
+	"net"
 	"net/http"
+	"net/url"
 	"strings"
 	"sync"
 	"time"
@@ -40,6 +42,11 @@ type LLMTxtEntry struct {
 
 // Run executes the documentation fetching process
 func Run(config Config) error {
+	// Validate configuration
+	if err := validateConfig(&config); err != nil {
+		return fmt.Errorf("invalid configuration: %w", err)
+	}
+
 	log.Printf("Starting documentation fetch from: %s", config.BaseURL)
 	
 	// Create a visited map to avoid duplicate fetching
@@ -95,18 +102,31 @@ func Run(config Config) error {
 func worker(config Config, pagesChan <-chan *Page, resultsChan chan<- string, mutex *sync.Mutex, visited map[string]bool, llmEntries *[]LLMTxtEntry) {
 	client := &http.Client{
 		Timeout: 30 * time.Second,
+		// Add transport with security restrictions
+		Transport: &http.Transport{
+			DisableKeepAlives: true,
+		},
 	}
 	
 	for page := range pagesChan {
+		// Validate URL before fetching
+		if err := isValidURL(page.URL); err != nil {
+			log.Printf("Skipping invalid URL %s: %v", page.URL, err)
+			continue
+		}
+		
 		mutex.Lock()
 		if visited[page.URL] {
 			mutex.Unlock()
 			continue
 		}
 		visited[page.URL] = true
-		mutex.Unlock
+		mutex.Unlock()
 		
 		log.Printf("Fetching: %s", page.URL)
+		
+		// Rate limiting - be respectful to servers
+		time.Sleep(100 * time.Millisecond)
 		
 		// Fetch the page
 		req, err := http.NewRequest("GET", page.URL, nil)
@@ -246,4 +266,67 @@ func cleanHTML(htmlStr string) string {
 	
 	extractText(doc)
 	return strings.Join(texts, "\n")
+}
+
+// isValidURL validates that a URL is safe to fetch
+func isValidURL(urlStr string) error {
+	parsed, err := url.Parse(urlStr)
+	if err != nil {
+		return fmt.Errorf("invalid URL format: %w", err)
+	}
+	
+	// Only allow HTTP/HTTPS
+	if parsed.Scheme != "http" && parsed.Scheme != "https" {
+		return fmt.Errorf("only HTTP/HTTPS URLs allowed")
+	}
+	
+	// Block private IP ranges
+	host := parsed.Hostname()
+	ip := net.ParseIP(host)
+	if ip != nil {
+		if ip.IsPrivate() || ip.IsLoopback() || ip.IsLinkLocalUnicast() || ip.IsMulticast() {
+			return fmt.Errorf("private/internal IP addresses not allowed")
+		}
+	}
+	
+	// Block dangerous hostnames
+	dangerousHosts := []string{"localhost", "127.0.0.1", "0.0.0.0", "::1"}
+	for _, dangerous := range dangerousHosts {
+		if host == dangerous {
+			return fmt.Errorf("local hostnames not allowed")
+		}
+	}
+	
+	return nil
+}
+
+// validateConfig validates the entire configuration
+func validateConfig(config *Config) error {
+	if err := validateOutputPath(config.OutputPath); err != nil {
+		return fmt.Errorf("output path validation failed: %w", err)
+	}
+	
+	if err := isValidURL(config.BaseURL); err != nil {
+		return fmt.Errorf("base URL validation failed: %w", err)
+	}
+	
+	// Limit depth to prevent excessive crawling
+	if config.MaxDepth > 10 {
+		return fmt.Errorf("max depth cannot exceed 10")
+	}
+	
+	// Limit workers to prevent resource exhaustion
+	if config.Workers > 20 {
+		return fmt.Errorf("concurrent workers cannot exceed 20")
+	}
+	
+	// Ensure reasonable timeout values
+	if config.Workers <= 0 {
+		config.Workers = 3 // Default
+	}
+	if config.MaxDepth <= 0 {
+		config.MaxDepth = 2 // Default
+	}
+	
+	return nil
 }
