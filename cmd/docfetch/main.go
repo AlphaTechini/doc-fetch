@@ -14,6 +14,7 @@ func main() {
 	depth := flag.Int("depth", 2, "Maximum crawl depth")
 	concurrent := flag.Int("concurrent", 3, "Concurrent fetchers")
 	userAgent := flag.String("user-agent", "DocFetch/1.0", "Custom user agent")
+	llmTxt := flag.Bool("llm-txt", false, "Generate llm.txt index file")
 
 	flag.Parse()
 
@@ -22,11 +23,12 @@ func main() {
 	}
 
 	config := fetcher.Config{
-		BaseURL:    *url,
-		OutputPath: *output,
-		MaxDepth:   *depth,
-		Workers:    *concurrent,
-		UserAgent:  *userAgent,
+		BaseURL:         *url,
+		OutputPath:      *output,
+		MaxDepth:        *depth,
+		Workers:         *concurrent,
+		UserAgent:       *userAgent,
+		GenerateLLMTxt:  *llmTxt,
 	}
 
 	err := fetcher.Run(config)
@@ -35,4 +37,13 @@ func main() {
 	}
 
 	log.Printf("Documentation successfully saved to %s", *output)
+	if *llmTxt {
+		llmTxtPath := *output
+		if strings.HasSuffix(*output, ".md") {
+			llmTxtPath = strings.TrimSuffix(*output, ".md") + ".llm.txt"
+		} else {
+			llmTxtPath = *output + ".llm.txt"
+		}
+		log.Printf("LLM.txt index generated: %s", llmTxtPath)
+	}
 }
