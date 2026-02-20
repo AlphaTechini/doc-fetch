@@ -38,39 +38,51 @@ console.log(`📦 Platform: ${platform} ${arch}`);
 console.log(`📦 Expected binary: ${expectedBinary}`);
 console.log(`📦 Will copy to: ${binaryName}\n`);
 
+// List all available binaries for debugging
+console.log('📋 Available binaries in package:');
+try {
+  const files = fs.readdirSync(packageDir);
+  const binaries = files.filter(f => f.includes('doc-fetch') && !f.endsWith('.js'));
+  if (binaries.length === 0) {
+    console.log('   ⚠️  No binaries found! Package may be corrupted.');
+  } else {
+    binaries.forEach(file => {
+      const stats = fs.statSync(path.join(packageDir, file));
+      const size = (stats.size / 1024 / 1024).toFixed(2);
+      console.log(`   ✅ ${file} (${size} MB)`);
+    });
+  }
+} catch (e) {
+  console.log(`   ❌ Could not list directory: ${e.message}`);
+}
+console.log('');
+
 // Check if the expected binary exists
 if (!fs.existsSync(sourcePath)) {
   console.error(`⚠️  CRITICAL: Expected binary not found at: ${sourcePath}`);
   console.error('');
-  console.error('💡 Listing package contents:');
-  try {
-    const files = fs.readdirSync(packageDir);
-    files.forEach(file => {
-      if (file.includes('doc-fetch')) {
-        console.error(`   📄 ${file}`);
-      }
-    });
-  } catch (e) {
-    console.error(`   Could not list directory: ${e.message}`);
-  }
-  console.error('');
   console.error('💡 This might be because:');
-  console.error('   1. The package was published without binaries');
-  console.error('   2. Your platform/architecture is not supported');
+  console.error('   1. Your platform/architecture is not supported');
+  console.error('   2. The package was published without binaries');
   console.error('');
   console.error('Supported platforms:');
-  console.error('   - Linux x64 (amd64)');
-  console.error('   - macOS x64 (amd64)');  
-  console.error('   - Windows x64 (amd64)');
+  console.error('   ✅ Linux x64 (amd64)');
+  console.error('   ✅ Linux ARM64 (arm64)');
+  console.error('   ✅ macOS x64 (amd64)');
+  console.error('   ✅ macOS ARM64 (M1/M2)');
+  console.error('   ✅ Windows x64 (amd64)');
   console.error('');
-  console.error('💡 Workaround: Install from source');
-  console.error('   npm uninstall -g doc-fetch-cli');
-  console.error('   git clone https://github.com/AlphaTechini/doc-fetch.git');
-  console.error('   cd doc-fetch && go build -o doc-fetch ./cmd/docfetch');
+  console.error('💡 Manual fix:');
+  console.error(`   1. Navigate to: ${packageDir}`);
+  console.error(`   2. Rename the correct binary for your platform:`);
   if (platform === 'win32') {
-    console.error('   copy doc-fetch.exe %APPDATA%\\npm\\node_modules\\doc-fetch-cli\\');
+    console.error(`      copy doc-fetch_windows_amd64.exe ${binaryName}`);
+  } else if (platform === 'darwin') {
+    console.error(`      cp doc-fetch_darwin_amd64 ${binaryName}`);
+    console.error(`      chmod +x ${binaryName}`);
   } else {
-    console.error('   sudo cp doc-fetch /usr/local/bin/');
+    console.error(`      cp doc-fetch_linux_amd64 ${binaryName}`);
+    console.error(`      chmod +x ${binaryName}`);
   }
   process.exit(1);
 }
