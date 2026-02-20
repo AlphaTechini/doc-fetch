@@ -6,7 +6,9 @@
     "doc-fetch": "./bin/doc-fetch.js"
   },
   "scripts": {
-    "postinstall": "node ./bin/postinstall.js"
+    "prepublishOnly": "node ./scripts/verify-binaries.js",
+    "postinstall": "node ./bin/postinstall.js",
+    "verify": "node ./scripts/verify-binaries.js"
   },
   "repository": {
     "type": "git",
