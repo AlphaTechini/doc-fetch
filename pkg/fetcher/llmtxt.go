@@ -7,14 +7,6 @@ import (
 	"strings"
 )
 
-// LLMTxtEntry represents a single entry in the llm.txt file
-type LLMTxtEntry struct {
-	Type        string // SECTION, API, GUIDE, REFERENCE, TUTORIAL
-	Title       string
-	URL         string
-	Description string
-}
-
 // GenerateLLMTxt creates an llm.txt file with AI-friendly documentation index
 func GenerateLLMTxt(entries []LLMTxtEntry, outputPath string) error {
 	file, err := os.Create(outputPath)
