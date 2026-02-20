@@ -32,6 +32,11 @@ Most AIs can't navigate documentation like humans do. They can't scroll through 
 
 ## 📦 Installation
 
+### PyPI (Recommended for Python developers) ✨ NEW
+```bash
+pip install doc-fetch
+```
+
 ### NPM (Recommended for JavaScript/Node.js developers)
 ```bash
 npm install -g doc-fetch
