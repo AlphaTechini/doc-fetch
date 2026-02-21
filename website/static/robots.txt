@@ -1,3 +1,43 @@
-# allow crawling everything by default
+# Robots.txt for DocFetch
+# Allow all crawlers full access
+
 User-agent: *
-Disallow:
+Allow: /
+
+# Sitemap location
+Sitemap: https://docfetch.dev/sitemap.xml
+
+# Crawl-delay (optional, be nice to servers)
+Crawl-delay: 1
+
+# Block common bad paths
+Disallow: /_app/
+Disallow: /node_modules/
+Disallow: /*.json$
+
+# Allow all blog content
+Allow: /blog/
+Allow: /rag/
+Allow: /llm-tools/
+Allow: /web3/
+Allow: /ai-infra/
+
+# Specific rules for Googlebot (priority crawler)
+User-agent: Googlebot
+Allow: /
+Crawl-delay: 0
+
+# Bing
+User-agent: Bingbot
+Allow: /
+Crawl-delay: 2
+
+# Block AI scrapers if desired (controversial but option)
+# User-agent: GPTBot
+# Disallow: /
+
+# User-agent: ChatGPT-User
+# Disallow: /
+
+# User-agent: CCBot
+# Disallow: /
