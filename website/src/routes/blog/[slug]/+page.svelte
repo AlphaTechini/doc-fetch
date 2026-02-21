@@ -2,6 +2,7 @@
 	import { page } from '$app/stores';
 	import type { PageData } from './$types';
 	import { marked } from 'marked';
+	import TableOfContents from '$lib/components/TableOfContents.svelte';
 	
 	let { data }: { data: PageData } = $props();
 	let post = data.post;
@@ -147,72 +148,80 @@ Stay tuned!
 		</nav>
 	</header>
 
-	<article class="post">
-		<header class="post-header">
-			<div class="breadcrumbs">
-				<a href="/blog">Blog</a>
-				<span>/</span>
-				<span>{post.title}</span>
-			</div>
-			
-			<h1>{post.title}</h1>
-			
-			<div class="meta">
-				<time datetime={post.date}>{post.date}</time>
-				<span class="separator">•</span>
-				<span class="author">{post.author}</span>
-				<span class="separator">•</span>
-				<span class="read-time">{post.readTime}</span>
-			</div>
-			
-			<div class="tags">
-				{#each post.tags as tag}
-					<span class="tag">{tag}</span>
-				{/each}
-			</div>
-		</header>
+	<div class="post-layout">
+		<main class="post-content">
+			<article class="post">
+				<header class="post-header">
+					<div class="breadcrumbs">
+						<a href="/blog">Blog</a>
+						<span>/</span>
+						<span>{post.title}</span>
+					</div>
+					
+					<h1>{post.title}</h1>
+					
+					<div class="meta">
+						<time datetime={post.date}>{post.date}</time>
+						<span class="separator">•</span>
+						<span class="author">{post.author}</span>
+						<span class="separator">•</span>
+						<span class="read-time">{post.readTime}</span>
+					</div>
+					
+					<div class="tags">
+						{#each post.tags as tag}
+							<span class="tag">{tag}</span>
+						{/each}
+					</div>
+				</header>
 
-		<div class="content">
-			{@html htmlContent}
-		</div>
-
-		<footer class="post-footer">
-			<!-- Related Posts Section (Internal Linking for Topical Authority) -->
-			<section class="related-posts">
-				<h3>Related Articles</h3>
-				<div class="related-grid">
-					{#each post.relatedPosts || [] as relatedSlug}
-						<article class="related-card">
-							<h4>
-								<a href={`/blog/${relatedSlug}`}>
-									{getRelatedPostTitle(relatedSlug)}
-								</a>
-							</h4>
-							<p>{getRelatedPostExcerpt(relatedSlug)}</p>
-						</article>
-					{/each}
+				<div class="content">
+					{@html htmlContent}
 				</div>
-			</section>
+			</article>
 			
-			<div class="cta-box">
-				<h3>Ready to Convert Your Documentation?</h3>
-				<p>DocFetch automates the entire process. One command, complete docs, AI-ready output.</p>
-				<div class="cta-buttons">
-					<a href="/#installation" class="btn primary">Install DocFetch</a>
-					<a href="https://github.com/AlphaTechini/doc-fetch" target="_blank" rel="noopener noreferrer" class="btn secondary">View on GitHub</a>
+			<footer class="post-footer">
+				<!-- Related Posts Section (Internal Linking for Topical Authority) -->
+				<section class="related-posts">
+					<h3>Related Articles</h3>
+					<div class="related-grid">
+						{#each post.relatedPosts || [] as relatedSlug}
+							<article class="related-card">
+								<h4>
+									<a href={`/blog/${relatedSlug}`}>
+										{getRelatedPostTitle(relatedSlug)}
+									</a>
+								</h4>
+								<p>{getRelatedPostExcerpt(relatedSlug)}</p>
+							</article>
+						{/each}
+					</div>
+				</section>
+				
+				<div class="cta-box">
+					<h3>Ready to Convert Your Documentation?</h3>
+					<p>DocFetch automates the entire process. One command, complete docs, AI-ready output.</p>
+					<div class="cta-buttons">
+						<a href="/#installation" class="btn primary">Install DocFetch</a>
+						<a href="https://github.com/AlphaTechini/doc-fetch" target="_blank" rel="noopener noreferrer" class="btn secondary">View on GitHub</a>
+					</div>
 				</div>
-			</div>
-			
-			<div class="share-section">
-				<h4>Share this article</h4>
-				<div class="share-buttons">
-					<a href="https://twitter.com/intent/tweet?text={encodeURIComponent(post.title)}&url={encodeURIComponent(canonicalUrl)}" target="_blank" rel="noopener noreferrer" class="share-btn twitter">Twitter</a>
-					<a href="https://www.linkedin.com/sharing/share-offsite/?url={encodeURIComponent(canonicalUrl)}" target="_blank" rel="noopener noreferrer" class="share-btn linkedin">LinkedIn</a>
-					<a href="https://news.ycombinator.com/submitlink?u={encodeURIComponent(canonicalUrl)}&t={encodeURIComponent(post.title)}" target="_blank" rel="noopener noreferrer" class="share-btn hn">Hacker News</a>
+				
+				<div class="share-section">
+					<h4>Share this article</h4>
+					<div class="share-buttons">
+						<a href="https://twitter.com/intent/tweet?text={encodeURIComponent(post.title)}&url={encodeURIComponent(canonicalUrl)}" target="_blank" rel="noopener noreferrer" class="share-btn twitter">Twitter</a>
+						<a href="https://www.linkedin.com/sharing/share-offsite/?url={encodeURIComponent(canonicalUrl)}" target="_blank" rel="noopener noreferrer" class="share-btn linkedin">LinkedIn</a>
+						<a href="https://news.ycombinator.com/submitlink?u={encodeURIComponent(canonicalUrl)}&t={encodeURIComponent(post.title)}" target="_blank" rel="noopener noreferrer" class="share-btn hn">Hacker News</a>
+					</div>
 				</div>
-			</div>
-		</footer>
-	</article>
+			</footer>
+		</main>
+		
+		<aside class="post-sidebar">
+			<TableOfContents contentSelector=".content" title="On this page" />
+		</aside>
+	</div>
 
 	<footer class="site-footer">
 		<div class="footer-content">
@@ -252,7 +261,7 @@ Stay tuned!
 	}
 
 	.container {
-		max-width: var(--max-width);
+		max-width: 1200px;
 		margin: 0 auto;
 		padding: 0 2rem;
 	}
@@ -308,8 +317,25 @@ Stay tuned!
 		color: var(--accent);
 	}
 
-	.post {
+	.post-layout {
+		display: grid;
+		grid-template-columns: 1fr 280px;
+		gap: 3rem;
 		padding: 8rem 0 4rem;
+		max-width: 1200px;
+		margin: 0 auto;
+	}
+
+	.post-content {
+		min-width: 0;
+	}
+
+	.post-sidebar {
+		position: relative;
+	}
+
+	.post {
+		margin-bottom: 3rem;
 	}
 
 	.post-header {
@@ -623,6 +649,16 @@ Stay tuned!
 
 	.footer-right a:hover {
 		color: var(--accent);
+	}
+
+	@media (max-width: 1200px) {
+		.post-layout {
+			grid-template-columns: 1fr;
+		}
+		
+		.post-sidebar {
+			display: none;
+		}
 	}
 
 	@media (max-width: 768px) {
