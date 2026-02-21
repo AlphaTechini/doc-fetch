@@ -3,6 +3,7 @@
 	import type { PageData } from './$types';
 	import { marked } from 'marked';
 	import TableOfContents from '$lib/components/TableOfContents.svelte';
+	import { addCopyButtons } from '$lib/actions/addCopyButtons';
 	
 	let { data }: { data: PageData } = $props();
 	let post = data.post;
@@ -175,7 +176,7 @@ Stay tuned!
 					</div>
 				</header>
 
-				<div class="content">
+				<div class="content" use:addCopyButtons>
 					{@html htmlContent}
 				</div>
 			</article>
@@ -425,6 +426,7 @@ Stay tuned!
 		margin: 1.5rem 0;
 		font-size: 0.9rem;
 		line-height: 1.6;
+		position: relative;
 	}
 
 	.content code {
@@ -434,6 +436,53 @@ Stay tuned!
 
 	.content pre code {
 		color: #d4d4d4;
+	}
+
+	.copy-code-button {
+		position: absolute;
+		top: 0.75rem;
+		right: 0.75rem;
+		background: rgba(255, 255, 255, 0.1);
+		border: none;
+		border-radius: 4px;
+		padding: 0.5rem;
+		cursor: pointer;
+		color: #d4d4d4;
+		transition: all 0.2s;
+		opacity: 0;
+		z-index: 10;
+		display: flex;
+		align-items: center;
+		gap: 0.5rem;
+		font-size: 0.875rem;
+	}
+
+	.copy-code-button:hover,
+	pre:hover .copy-code-button {
+		opacity: 1;
+		background: rgba(255, 255, 255, 0.15);
+	}
+
+	.copy-code-button:active {
+		transform: scale(0.95);
+	}
+
+	.copy-code-button.copied {
+		background: rgba(39, 201, 63, 0.2);
+	}
+
+	.copy-code-button svg {
+		display: block;
+	}
+
+	.copy-code-button .tooltip {
+		background: rgba(0, 0, 0, 0.8);
+		color: white;
+		padding: 0.25rem 0.5rem;
+		border-radius: 4px;
+		font-size: 0.75rem;
+		white-space: nowrap;
+		pointer-events: none;
 	}
 
 	.content :global(code:not(pre code)) {
