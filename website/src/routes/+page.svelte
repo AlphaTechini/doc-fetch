@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
+	import DarkModeToggle from '$lib/components/DarkModeToggle.svelte';
 	
 	let scrolled = false;
 	
@@ -101,6 +102,7 @@
 				<a href="#features">Features</a>
 				<a href="#installation">Installation</a>
 				<a href="/blog">Blog</a>
+				<DarkModeToggle />
 				<a href="https://github.com/AlphaTechini/doc-fetch" target="_blank" rel="noopener noreferrer">GitHub →</a>
 			</div>
 		</nav>

@@ -3,6 +3,7 @@
 	import type { PageData } from './$types';
 	import { marked } from 'marked';
 	import TableOfContents from '$lib/components/TableOfContents.svelte';
+	import DarkModeToggle from '$lib/components/DarkModeToggle.svelte';
 	import { addCopyButtons } from '$lib/actions/addCopyButtons';
 	
 	let { data }: { data: PageData } = $props();
@@ -144,6 +145,7 @@ Stay tuned!
 				<a href="/#features">Features</a>
 				<a href="/#installation">Installation</a>
 				<a href="/blog" class="active">Blog</a>
+				<DarkModeToggle />
 				<a href="https://github.com/AlphaTechini/doc-fetch" target="_blank" rel="noopener noreferrer">GitHub →</a>
 			</div>
 		</nav>
