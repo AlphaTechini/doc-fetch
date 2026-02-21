@@ -1,14 +1,37 @@
 <script lang="ts">
 	import { page } from '$app/stores';
+	import type { PageData } from './$types';
 	
-	const post = {
-		slug: 'convert-docs-to-markdown-for-llm',
-		title: 'How to Convert Documentation to Markdown for LLMs (Complete Guide)',
-		date: 'February 21, 2026',
-		author: 'AlphaTechini',
-		readTime: '8 min read',
-		tags: ['Tutorial', 'LLM', 'Markdown'],
-		content: `
+	let { data }: { data: PageData } = $props();
+	let post = data.post;
+	
+	const baseUrl = 'https://docfetch.dev';
+	const canonicalUrl = `${baseUrl}/blog/${post.slug}`;
+	
+	// Helper functions for related posts
+	function getRelatedPostTitle(slug: string): string {
+		const titles: Record<string, string> = {
+			'llm-txt-index-guide': 'LLM.txt Explained: The Secret to Better AI Context Navigation',
+			'ai-agent-documentation-problem': 'Why AI Agents Can\'t Read Documentation (And How to Fix It)',
+			'best-practices-rag-context-preparation': 'RAG Context Preparation: 7 Best Practices from Production',
+			'compare-documentation-fetchers': 'Documentation Fetchers Compared: DocFetch vs Alternatives',
+			'token-efficiency-llm-context': 'Token Efficiency: How to Fit More Context in Less Tokens'
+		};
+		return titles[slug] || 'Related Article';
+	}
+	
+	function getRelatedPostExcerpt(slug: string): string {
+		const excerpts: Record<string, string> = {
+			'llm-txt-index-guide': 'What is llm.txt? How does it supercharge your AI agents? Complete guide to semantic documentation indexing.',
+			'ai-agent-documentation-problem': 'The fundamental problem with AI agents and web navigation. Real-world solutions for production deployments.',
+			'best-practices-rag-context-preparation': 'Learn from real deployments: chunking strategies, metadata enrichment, and indexing approaches that work.',
+			'compare-documentation-fetchers': 'Honest comparison of tools for converting docs to markdown. Features, limitations, and when to use each.',
+			'token-efficiency-llm-context': 'Reduce LLM costs by 60%+ with smart context preparation. Cleaning strategies and compression techniques.'
+		};
+		return excerpts[slug] || 'Read more about this topic.';
+	}
+	
+	const content = `
 ## The Problem: AI Agents Can't Browse Documentation Like Humans
 
 When you're working with Large Language Models (LLMs), you've probably hit this wall:
@@ -537,6 +560,57 @@ Your AI agents will thank you. 🚀
 	<meta name="twitter:card" content="summary_large_image" />
 	<meta name="twitter:title" content={post.title} />
 	<meta name="twitter:description" content="Step-by-step guide with code examples and best practices" />
+	
+	<!-- Structured Data: BlogPosting Schema -->
+	<script type="application/ld+json">
+		{
+			"@context": "https://schema.org",
+			"@type": "BlogPosting",
+			"headline": {post.title},
+			"description": "{post.excerpt}",
+			"url": "{canonicalUrl}",
+			"author": {
+				"@type": "Person",
+				"name": {post.author},
+				"url": "https://github.com/AlphaTechini"
+			},
+			"datePublished": "{post.date}",
+			"dateModified": "{post.modifiedDate || post.date}",
+			"publisher": {
+				"@type": "Organization",
+				"name": "DocFetch",
+				"logo": {
+					"@type": "ImageObject",
+					"url": "{baseUrl}/favicon.svg"
+				}
+			},
+			"mainEntityOfPage": {
+				"@type": "WebPage",
+				"@id": canonicalUrl
+			},
+			"articleBody": "Complete guide to converting documentation websites into AI-ready markdown with LLM.txt indexing",
+			"wordCount": 3500,
+			"inLanguage": "en-US",
+			"keywords": {post.tags.join(', ')},
+			"articleSection": {post.category || 'Tutorial'}
+		}
+	</script>
+	
+	<!-- Structured Data: FAQPage Schema (for People Also Ask) -->
+	<script type="application/ld+json">
+		{
+			"@context": "https://schema.org",
+			"@type": "FAQPage",
+			"mainEntity": {post.faqs.map(faq => ({
+				"@type": "Question",
+				"name": faq.question,
+				"acceptedAnswer": {
+					"@type": "Answer",
+					"text": faq.answer
+				}
+			}))}
+		}
+	</script>
 </svelte:head>
 
 <div class="container">
@@ -587,6 +661,23 @@ Your AI agents will thank you. 🚀
 		</div>
 
 		<footer class="post-footer">
+			<!-- Related Posts Section (Internal Linking for Topical Authority) -->
+			<section class="related-posts">
+				<h3>Related Articles</h3>
+				<div class="related-grid">
+					{#each post.relatedPosts || [] as relatedSlug}
+						<article class="related-card">
+							<h4>
+								<a href={`/blog/${relatedSlug}`}>
+									{getRelatedPostTitle(relatedSlug)}
+								</a>
+							</h4>
+							<p>{getRelatedPostExcerpt(relatedSlug)}</p>
+						</article>
+					{/each}
+				</div>
+			</section>
+			
 			<div class="cta-box">
 				<h3>Ready to Convert Your Documentation?</h3>
 				<p>DocFetch automates the entire process. One command, complete docs, AI-ready output.</p>
@@ -961,6 +1052,56 @@ Your AI agents will thank you. 🚀
 
 	.footer-right a:hover {
 		color: var(--accent);
+	}
+
+	/* Related Posts Section */
+	.related-posts {
+		margin-bottom: 3rem;
+		padding-bottom: 2rem;
+		border-bottom: 1px solid var(--border);
+	}
+
+	.related-posts h3 {
+		font-size: 1.4rem;
+		margin-bottom: 1.5rem;
+	}
+
+	.related-grid {
+		display: grid;
+		grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+		gap: 1.5rem;
+	}
+
+	.related-card {
+		background: var(--bg-secondary);
+		padding: 1.5rem;
+		border-radius: 6px;
+		transition: transform 0.2s;
+	}
+
+	.related-card:hover {
+		transform: translateY(-2px);
+	}
+
+	.related-card h4 {
+		font-size: 1.1rem;
+		margin: 0 0 0.75rem;
+	}
+
+	.related-card h4 a {
+		color: var(--text-primary);
+		text-decoration: none;
+	}
+
+	.related-card h4 a:hover {
+		color: var(--accent);
+	}
+
+	.related-card p {
+		font-size: 0.9rem;
+		color: var(--text-secondary);
+		margin: 0;
+		line-height: 1.6;
 	}
 
 	@media (max-width: 768px) {
