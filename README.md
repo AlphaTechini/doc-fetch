@@ -2,6 +2,8 @@
 
 **Transform entire documentation sites into AI-ready, single-file markdown with intelligent LLM.txt indexing**
 
+🌐 **Website**: [docfetch.dev](https://docfetch.dev)
+
 Most AIs can't navigate documentation like humans do. They can't scroll through sections, click sidebar links, or explore related pages. **DocFetch solves this fundamental problem** by converting entire documentation sites into comprehensive, clean markdown files that contain every section and piece of information in a format that LLMs love.
 
 ## 🚀 Why DocFetch is Essential for AI Development

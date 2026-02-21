@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "doc-fetch"
-version = "2.0.3"
+version = "2.0.4"
 description = "Dynamic documentation fetching CLI that converts entire documentation sites to single markdown files for AI/LLM consumption"
 readme = "README.md"
 authors = [{name = "AlphaTechini", email = "rehobothokoibu@gmail.com"}]

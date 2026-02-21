@@ -16,6 +16,10 @@ package.json
 pyproject.toml
 setup.py
 bin/doc-fetch.js
+bin/doc-fetch_darwin_amd64
+bin/doc-fetch_darwin_arm64
+bin/doc-fetch_linux_amd64
+bin/doc-fetch_windows_amd64.exe
 bin/install.js
 bin/postinstall.js
 cmd/docfetch/main.go

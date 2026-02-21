@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: doc-fetch
-Version: 2.0.3
+Version: 2.0.4
 Summary: Dynamic documentation fetching CLI that converts entire documentation sites to single markdown files for AI/LLM consumption
 Home-page: https://github.com/AlphaTechini/doc-fetch
 Author: AlphaTechini
