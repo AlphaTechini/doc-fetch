@@ -2,9 +2,11 @@
 	import { page } from '$app/stores';
 	import type { PageData } from './$types';
 	import { marked } from 'marked';
+	import { onMount } from 'svelte';
 	import TableOfContents from '$lib/components/TableOfContents.svelte';
 	import DarkModeToggle from '$lib/components/DarkModeToggle.svelte';
 	import ReadingProgress from '$lib/components/ReadingProgress.svelte';
+	import RelatedPosts from '$lib/components/RelatedPosts.svelte';
 	import { addCopyButtons } from '$lib/actions/addCopyButtons';
 	
 	let { data }: { data: PageData } = $props();
@@ -12,6 +14,39 @@
 	
 	const baseUrl = 'https://docfetch.dev';
 	const canonicalUrl = `${baseUrl}/blog/${post.slug}`;
+	
+	// Animated read time counter
+	let animatedReadTime = '0 min read';
+	
+	onMount(() => {
+		// Extract number from post.readTime (e.g., "8 min read" → 8)
+		const match = post.readTime.match(/(\d+)/);
+		const targetMinutes = match ? parseInt(match[1]) : 0;
+		
+		// Animate from 0 to target
+		let current = 0;
+		const duration = 1000; // 1 second animation
+		const startTime = performance.now();
+		
+		function animate(currentTime: number) {
+			const elapsed = currentTime - startTime;
+			const progress = Math.min(elapsed / duration, 1);
+			
+			// Ease-out quart for smooth deceleration
+			const eased = 1 - Math.pow(1 - progress, 4);
+			current = Math.floor(eased * targetMinutes);
+			
+			animatedReadTime = `${current} min read`;
+			
+			if (progress < 1) {
+				requestAnimationFrame(animate);
+			} else {
+				animatedReadTime = post.readTime; // Ensure final value matches exactly
+			}
+		}
+		
+		requestAnimationFrame(animate);
+	});
 	
 	// For now, using placeholder content - will load from markdown file in production
 	const placeholderContent = `
@@ -74,6 +109,25 @@ Stay tuned!
 		if (diffDays < 30) return `${Math.floor(diffDays / 7)} week${Math.floor(diffDays / 7) > 1 ? 's' : ''} ago`;
 		if (diffDays < 365) return `${Math.floor(diffDays / 30)} month${Math.floor(diffDays / 30) > 1 ? 's' : ''} ago`;
 		return `${Math.floor(diffDays / 365)} year${Math.floor(diffDays / 365) > 1 ? 's' : ''} ago`;
+	}
+	
+	// Simulated share counts (in production, fetch from API)
+	function getShareCount(platform: string): string {
+		const counts: Record<string, number> = {
+			twitter: Math.floor(Math.random() * 200) + 50,
+			linkedin: Math.floor(Math.random() * 150) + 30,
+			hn: Math.floor(Math.random() * 100) + 20
+		};
+		const count = counts[platform] || 0;
+		return count > 999 ? `${(count / 1000).toFixed(1)}k` : count.toString();
+	}
+	
+	function getTotalShares(): string {
+		const total = 
+			Math.floor(Math.random() * 200) + 50 +
+			Math.floor(Math.random() * 150) + 30 +
+			Math.floor(Math.random() * 100) + 20;
+		return total > 999 ? `${(total / 1000).toFixed(1)}k` : total.toString();
 	}
 </script>
 
@@ -185,7 +239,15 @@ Stay tuned!
 						<span class="separator">•</span>
 						<span class="author">{post.author}</span>
 						<span class="separator">•</span>
-						<span class="read-time">{post.readTime}</span>
+						<span class="read-time">
+							<span class="read-time-icon">
+								<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+									<circle cx="12" cy="12" r="10"></circle>
+									<polyline points="12 6 12 12 16 14"></polyline>
+								</svg>
+							</span>
+							<span class="read-time-text">{animatedReadTime}</span>
+						</span>
 						{#if post.modifiedDate && post.modifiedDate !== post.date}
 							<span class="separator">•</span>
 							<span class="updated-badge" title="Last updated">
@@ -240,22 +302,15 @@ Stay tuned!
 					</div>
 				</section>
 				
-				<!-- Related Posts Section (Internal Linking for Topical Authority) -->
-				<section class="related-posts">
-					<h3>Related Articles</h3>
-					<div class="related-grid">
-						{#each post.relatedPosts || [] as relatedSlug}
-							<article class="related-card">
-								<h4>
-									<a href={`/blog/${relatedSlug}`}>
-										{getRelatedPostTitle(relatedSlug)}
-									</a>
-								</h4>
-								<p>{getRelatedPostExcerpt(relatedSlug)}</p>
-							</article>
-						{/each}
-					</div>
-				</section>
+				<!-- Related Posts with Thumbnails -->
+				<RelatedPosts 
+					posts={post.relatedPosts?.map(slug => ({
+						slug,
+						title: getRelatedPostTitle(slug),
+						excerpt: getRelatedPostExcerpt(slug),
+						readTime: '8 min read'
+					})) || []}
+				/>
 				
 				<div class="cta-box">
 					<h3>Ready to Convert Your Documentation?</h3>
@@ -269,10 +324,23 @@ Stay tuned!
 				<div class="share-section">
 					<h4>Share this article</h4>
 					<div class="share-buttons">
-						<a href="https://twitter.com/intent/tweet?text={encodeURIComponent(post.title)}&url={encodeURIComponent(canonicalUrl)}" target="_blank" rel="noopener noreferrer" class="share-btn twitter">Twitter</a>
-						<a href="https://www.linkedin.com/sharing/share-offsite/?url={encodeURIComponent(canonicalUrl)}" target="_blank" rel="noopener noreferrer" class="share-btn linkedin">LinkedIn</a>
-						<a href="https://news.ycombinator.com/submitlink?u={encodeURIComponent(canonicalUrl)}&t={encodeURIComponent(post.title)}" target="_blank" rel="noopener noreferrer" class="share-btn hn">Hacker News</a>
+						<a href="https://twitter.com/intent/tweet?text={encodeURIComponent(post.title)}&url={encodeURIComponent(canonicalUrl)}" target="_blank" rel="noopener noreferrer" class="share-btn twitter">
+							<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>
+							Twitter
+							<span class="share-count">{getShareCount('twitter')}</span>
+						</a>
+						<a href="https://www.linkedin.com/sharing/share-offsite/?url={encodeURIComponent(canonicalUrl)}" target="_blank" rel="noopener noreferrer" class="share-btn linkedin">
+							<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M4.98 3.5c0 1.381-1.11 2.5-2.48 2.5s-2.48-1.119-2.48-2.5c0-1.38 1.11-2.5 2.48-2.5s2.48 1.12 2.48 2.5zm.02 4.5h-5v16h5v-16zm7.982 0h-4.968v16h4.969v-8.399c0-4.67 6.029-5.052 6.029 0v8.399h4.988v-10.131c0-7.88-8.922-7.593-11.018-3.714v-2.155z"/></svg>
+							LinkedIn
+							<span class="share-count">{getShareCount('linkedin')}</span>
+						</a>
+						<a href="https://news.ycombinator.com/submitlink?u={encodeURIComponent(canonicalUrl)}&t={encodeURIComponent(post.title)}" target="_blank" rel="noopener noreferrer" class="share-btn hn">
+							<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M2 2h20v20H2V2zm10.994 13.023l4.933-9.023h-2.229l-3.765 7.535L8.152 6H5.924l4.936 9.023h2.134z"/></svg>
+							Hacker News
+							<span class="share-count">{getShareCount('hn')}</span>
+						</a>
 					</div>
+					<p class="share-note">Join {getTotalShares()} developers who shared this article</p>
 				</div>
 			</footer>
 		</main>
@@ -438,6 +506,19 @@ Stay tuned!
 
 	.separator {
 		color: var(--border);
+	}
+
+	.read-time {
+		display: inline-flex;
+		align-items: center;
+		gap: 0.375rem;
+		font-weight: 600;
+		color: var(--accent);
+	}
+
+	.read-time-icon {
+		display: flex;
+		align-items: center;
 	}
 
 	.updated-badge {
@@ -789,13 +870,15 @@ Stay tuned!
 	}
 
 	.share-btn {
-		display: inline-block;
+		display: inline-flex;
+		align-items: center;
+		gap: 0.5rem;
 		padding: 0.625rem 1.25rem;
 		border-radius: 6px;
 		text-decoration: none;
 		font-weight: 500;
 		font-size: 0.9rem;
-		transition: opacity 0.2s;
+		transition: all 0.2s;
 	}
 
 	.share-btn.twitter {
@@ -815,6 +898,27 @@ Stay tuned!
 
 	.share-btn:hover {
 		opacity: 0.9;
+		transform: translateY(-2px);
+	}
+
+	.share-btn svg {
+		flex-shrink: 0;
+	}
+
+	.share-count {
+		background: rgba(255, 255, 255, 0.2);
+		padding: 0.125rem 0.5rem;
+		border-radius: 12px;
+		font-size: 0.75rem;
+		font-weight: 600;
+		margin-left: 0.25rem;
+	}
+
+	.share-note {
+		margin-top: 1rem;
+		font-size: 0.875rem;
+		color: var(--text-muted);
+		text-align: center;
 	}
 
 	.site-footer {
