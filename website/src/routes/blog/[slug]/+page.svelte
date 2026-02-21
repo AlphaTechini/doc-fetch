@@ -4,6 +4,7 @@
 	import { marked } from 'marked';
 	import TableOfContents from '$lib/components/TableOfContents.svelte';
 	import DarkModeToggle from '$lib/components/DarkModeToggle.svelte';
+	import ReadingProgress from '$lib/components/ReadingProgress.svelte';
 	import { addCopyButtons } from '$lib/actions/addCopyButtons';
 	
 	let { data }: { data: PageData } = $props();
@@ -147,6 +148,8 @@ Stay tuned!
 </svelte:head>
 
 <div class="container">
+	<ReadingProgress />
+	
 	<header>
 		<nav>
 			<div class="logo">
@@ -527,24 +530,45 @@ Stay tuned!
 	}
 
 	.content {
-		font-size: 1.125rem;
-		line-height: 1.8;
+		font-size: 1.1875rem; /* 19px - improved readability */
+		line-height: 1.85; /* Better vertical rhythm */
+		max-width: 65ch; /* Optimal line length for reading */
 	}
 
 	.content h2 {
-		font-size: 1.75rem;
-		margin-top: 3rem;
-		margin-bottom: 1.25rem;
+		font-size: 1.875rem; /* 30px */
+		margin-top: 3.5rem;
+		margin-bottom: 1.5rem;
+		font-weight: 700;
+		letter-spacing: -0.01em;
 	}
 
 	.content h3 {
-		font-size: 1.4rem;
-		margin-top: 2.5rem;
+		font-size: 1.5rem; /* 24px */
+		margin-top: 2.75rem;
+		margin-bottom: 1.25rem;
+		font-weight: 600;
+	}
+
+	.content h4 {
+		font-size: 1.25rem;
+		margin-top: 2rem;
 		margin-bottom: 1rem;
+		font-weight: 600;
 	}
 
 	.content p {
-		margin-bottom: 1.5rem;
+		margin-bottom: 1.75rem; /* More breathing room */
+	}
+
+	.content ul, .content ol {
+		margin-bottom: 1.75rem;
+		padding-left: 2rem;
+	}
+
+	.content li {
+		margin-bottom: 0.875rem; /* Better spacing between items */
+		line-height: 1.7;
 	}
 
 	.content pre {
