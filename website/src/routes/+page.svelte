@@ -197,7 +197,8 @@ $ doc-fetch --url https://react.dev/learn --output docs.md --llm-txt</code></pre
 					<div class="install-header">
 						<span class="lang-badge">Node.js</span>
 					</div>
-					<pre><code>npm install -g doc-fetch</code></pre>
+					<pre><code>npm install -g doc-fetch
+pnpm add -g doc-fetch</code></pre>
 				</div>
 				
 				<div class="install-card">
@@ -710,7 +711,13 @@ HTTP client/server implementation.</code></pre>
 
 	.install-card pre {
 		padding: 1.5rem;
-		background: var(--bg-secondary);
+		background: #1e1e1e;
+		color: #d4d4d4;
+	}
+
+	.install-card code {
+		font-family: 'SF Mono', Monaco, 'Cascadia Code', monospace;
+		color: #d4d4d4;
 	}
 
 	.binary-link {

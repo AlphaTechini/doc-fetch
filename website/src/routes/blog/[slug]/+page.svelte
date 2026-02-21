@@ -403,6 +403,11 @@ Stay tuned!
 
 	.content code {
 		font-family: 'SF Mono', Monaco, 'Cascadia Code', monospace;
+		color: #d4d4d4;
+	}
+
+	.content pre code {
+		color: #d4d4d4;
 	}
 
 	.content :global(code:not(pre code)) {
@@ -410,6 +415,7 @@ Stay tuned!
 		padding: 0.2rem 0.5rem;
 		border-radius: 3px;
 		font-size: 0.9em;
+		color: var(--text-primary);
 	}
 
 	.content ul, .content ol {
