@@ -1,5 +1,10 @@
 <script lang="ts">
+	import { injectSpeedInsights } from '@vercel/speed-insights/sveltekit';
+	
 	let { children } = $props();
+	
+	// Inject Vercel Speed Insights for Core Web Vitals tracking
+	injectSpeedInsights();
 </script>
 
 <svelte:head>
@@ -9,9 +14,11 @@
 	<!-- DNS Prefetch for External Resources -->
 	<link rel="dns-prefetch" href="https://img.shields.io" />
 	<link rel="dns-prefetch" href="https://github.com" />
+	<link rel="dns-prefetch" href="https://vitals.vercel-insights.com" />
 	
 	<!-- Preconnect to CDN -->
 	<link rel="preconnect" href="https://img.shields.io" crossorigin />
+	<link rel="preconnect" href="https://vitals.vercel-insights.com" crossorigin />
 	
 	<!-- Font Optimization (if using custom fonts) -->
 	<!-- <link rel="preload" href="/fonts/inter-var.woff2" as="font" type="font/woff2" crossorigin> -->
