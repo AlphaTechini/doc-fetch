@@ -60,6 +60,20 @@ Stay tuned!
 		};
 		return excerpts[slug] || 'Read more about this topic.';
 	}
+	
+	function getRelativeTime(dateStr: string): string {
+		const date = new Date(dateStr);
+		const now = new Date();
+		const diffMs = now.getTime() - date.getTime();
+		const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+		
+		if (diffDays === 0) return 'today';
+		if (diffDays === 1) return 'yesterday';
+		if (diffDays < 7) return `${diffDays} days ago`;
+		if (diffDays < 30) return `${Math.floor(diffDays / 7)} week${Math.floor(diffDays / 7) > 1 ? 's' : ''} ago`;
+		if (diffDays < 365) return `${Math.floor(diffDays / 30)} month${Math.floor(diffDays / 30) > 1 ? 's' : ''} ago`;
+		return `${Math.floor(diffDays / 365)} year${Math.floor(diffDays / 365) > 1 ? 's' : ''} ago`;
+	}
 </script>
 
 <svelte:head>
@@ -169,6 +183,16 @@ Stay tuned!
 						<span class="author">{post.author}</span>
 						<span class="separator">•</span>
 						<span class="read-time">{post.readTime}</span>
+						{#if post.modifiedDate && post.modifiedDate !== post.date}
+							<span class="separator">•</span>
+							<span class="updated-badge" title="Last updated">
+								<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+									<polyline points="23 4 23 10 17 10"></polyline>
+									<path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path>
+								</svg>
+								Updated {getRelativeTime(post.modifiedDate)}
+							</span>
+						{/if}
 					</div>
 					
 					<div class="tags">
@@ -184,6 +208,35 @@ Stay tuned!
 			</article>
 			
 			<footer class="post-footer">
+				<!-- Author Bio Box (E-E-A-T Signal) -->
+				<section class="author-bio">
+					<div class="author-avatar">
+						👨‍💻
+					</div>
+					<div class="author-info">
+						<h4>{post.author}</h4>
+						<p class="author-role">Senior Infrastructure Engineer</p>
+						<p class="author-desc">
+							Specializing in Web2 + Web3 systems, AI orchestration, and distributed automation. 
+							Building developer tools that reduce friction and increase leverage.
+						</p>
+						<div class="author-links">
+							<a href="https://github.com/AlphaTechini" target="_blank" rel="noopener noreferrer" class="author-link">
+								<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+									<path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/>
+								</svg>
+								GitHub
+							</a>
+							<a href="https://www.npmjs.com/~alphatechini" target="_blank" rel="noopener noreferrer" class="author-link">
+								<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+									<path d="M1.763 0C.786 0 0 .786 0 1.763v20.474C0 23.214.786 24 1.763 24h20.474c.977 0 1.763-.786 1.763-1.763V1.763C24 .786 23.214 0 22.237 0zM5.13 5.323l1.836-.017.016 13.472H5.146zm5.092 0h1.82v9.02h3.669V5.323h1.837v10.86h-9.163zm8.963 0h1.836v13.472h-1.836z"/>
+								</svg>
+								NPM
+							</a>
+						</div>
+					</div>
+				</section>
+				
 				<!-- Related Posts Section (Internal Linking for Topical Authority) -->
 				<section class="related-posts">
 					<h3>Related Articles</h3>
@@ -377,10 +430,28 @@ Stay tuned!
 		font-size: 0.95rem;
 		color: var(--text-muted);
 		margin-bottom: 1.5rem;
+		flex-wrap: wrap;
 	}
 
 	.separator {
 		color: var(--border);
+	}
+
+	.updated-badge {
+		display: inline-flex;
+		align-items: center;
+		gap: 0.375rem;
+		background: rgba(39, 201, 63, 0.1);
+		color: #27c93f;
+		padding: 0.25rem 0.625rem;
+		border-radius: 12px;
+		font-size: 0.8rem;
+		font-weight: 600;
+	}
+
+	.dark .updated-badge {
+		background: rgba(39, 201, 63, 0.15);
+		color: #3fb950;
 	}
 
 	.tags {
@@ -396,6 +467,63 @@ Stay tuned!
 		border-radius: 12px;
 		font-size: 0.8rem;
 		font-weight: 500;
+	}
+
+	.author-bio {
+		display: flex;
+		gap: 1.5rem;
+		background: var(--bg-secondary);
+		padding: 2rem;
+		border-radius: 8px;
+		margin-bottom: 3rem;
+		align-items: center;
+	}
+
+	.author-avatar {
+		font-size: 4rem;
+		flex-shrink: 0;
+	}
+
+	.author-info h4 {
+		margin: 0 0 0.25rem;
+		font-size: 1.25rem;
+	}
+
+	.author-role {
+		color: var(--accent);
+		font-weight: 600;
+		margin: 0 0 0.75rem;
+		font-size: 0.95rem;
+	}
+
+	.author-desc {
+		color: var(--text-secondary);
+		margin: 0 0 1rem;
+		line-height: 1.6;
+	}
+
+	.author-links {
+		display: flex;
+		gap: 1rem;
+	}
+
+	.author-link {
+		display: inline-flex;
+		align-items: center;
+		gap: 0.5rem;
+		color: var(--text-secondary);
+		text-decoration: none;
+		font-weight: 500;
+		transition: color 0.2s;
+	}
+
+	.author-link:hover {
+		color: var(--accent);
+	}
+
+	.author-link svg {
+		width: 18px;
+		height: 18px;
 	}
 
 	.content {
