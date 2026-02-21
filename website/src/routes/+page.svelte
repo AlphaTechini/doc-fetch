@@ -1,6 +1,5 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import DarkModeToggle from '$lib/components/DarkModeToggle.svelte';
 	
 	let scrolled = false;
 	
@@ -102,7 +101,6 @@
 				<a href="#features">Features</a>
 				<a href="#installation">Installation</a>
 				<a href="/blog">Blog</a>
-				<DarkModeToggle />
 				<a href="https://github.com/AlphaTechini/doc-fetch" target="_blank" rel="noopener noreferrer">GitHub →</a>
 			</div>
 		</nav>
@@ -541,7 +539,7 @@ HTTP client/server implementation.</code></pre>
 	}
 
 	.command-block {
-		background: var(--code-bg);
+		background: #1e1e1e;
 		border-radius: 8px;
 		margin: 2rem auto;
 		max-width: 700px;
@@ -570,12 +568,15 @@ HTTP client/server implementation.</code></pre>
 		margin: 0;
 		padding: 1.5rem;
 		overflow-x: auto;
+		background: #1e1e1e;
+		color: #d4d4d4;
+		border-radius: 6px;
 	}
 
 	code {
 		font-family: 'SF Mono', Monaco, 'Cascadia Code', monospace;
 		font-size: 0.9rem;
-		color: var(--code-text);
+		color: #d4d4d4;
 	}
 
 	.cta-buttons {
@@ -715,6 +716,7 @@ HTTP client/server implementation.</code></pre>
 		padding: 1.5rem;
 		background: #1e1e1e;
 		color: #d4d4d4;
+		margin: 0;
 	}
 
 	.install-card code {
@@ -789,9 +791,17 @@ HTTP client/server implementation.</code></pre>
 	}
 
 	.example-card pre {
-		background: var(--bg-primary);
+		background: #1e1e1e;
+		color: #d4d4d4;
 		border-radius: 6px;
 		margin-bottom: 1rem;
+		padding: 1.5rem;
+		overflow-x: auto;
+	}
+
+	.example-card pre code {
+		font-family: 'SF Mono', Monaco, 'Cascadia Code', monospace;
+		color: #d4d4d4;
 	}
 
 	.example-card p {
