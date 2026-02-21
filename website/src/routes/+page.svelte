@@ -743,6 +743,20 @@ HTTP client/server implementation.</code></pre>
 		color: var(--text-secondary);
 	}
 
+	.usage-example pre {
+		background: #1e1e1e;
+		color: #d4d4d4;
+		padding: 1.5rem;
+		border-radius: 6px;
+		overflow-x: auto;
+		margin: 1.5rem 0;
+	}
+
+	.usage-example pre code {
+		font-family: 'SF Mono', Monaco, 'Cascadia Code', monospace;
+		color: #d4d4d4;
+	}
+
 	.usage-example pre:first-of-type {
 		margin-top: 0;
 	}
@@ -970,6 +984,17 @@ HTTP client/server implementation.</code></pre>
 
 	.footer-right a:hover {
 		color: var(--accent);
+	}
+
+	/* Global pre/code styling - ALL code blocks dark */
+	pre {
+		background: #1e1e1e !important;
+		color: #d4d4d4 !important;
+	}
+
+	pre code {
+		font-family: 'SF Mono', Monaco, 'Cascadia Code', monospace;
+		color: #d4d4d4 !important;
 	}
 
 	/* Responsive */
