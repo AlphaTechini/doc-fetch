@@ -2,9 +2,6 @@
 import type { PageLoad } from './$types';
 
 export const load: PageLoad = async ({ params }) => {
-	// In production, this would fetch from CMS/markdown files
-	// For now, we're using static data but structured for SSR
-	
 	const posts = {
 		'convert-docs-to-markdown-for-llm': {
 			slug: 'convert-docs-to-markdown-for-llm',
@@ -14,7 +11,8 @@ export const load: PageLoad = async ({ params }) => {
 			author: 'AlphaTechini',
 			readTime: '8 min read',
 			tags: ['Tutorial', 'LLM', 'Markdown'],
-			category: 'web3', // for URL hierarchy: /web3/wallets/how-web3-wallets-work
+			category: 'rag',
+			subcategory: 'context-preparation',
 			modifiedDate: '2026-02-21',
 			relatedPosts: [
 				'llm-txt-index-guide',
@@ -38,18 +36,15 @@ export const load: PageLoad = async ({ params }) => {
 					question: 'Can I automate documentation conversion?',
 					answer: 'Yes. Tools like DocFetch can automatically fetch, clean, and convert entire documentation sites with one command. Set up cron jobs for regular updates.'
 				}
-			]
+			],
+			content: '' // Will be loaded dynamically
 		}
-		// Add more posts here as they're created
 	};
 	
 	const post = posts[params.slug as keyof typeof posts];
 	
 	if (!post) {
-		return {
-			status: 404,
-			error: new Error('Post not found')
-		};
+		throw new Error('Post not found');
 	}
 	
 	return {

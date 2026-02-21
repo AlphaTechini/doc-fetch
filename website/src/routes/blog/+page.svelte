@@ -1,7 +1,25 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
+	import type { Action } from 'svelte/action';
 	
 	let scrolled = false;
+	
+	// Action to prevent form submission (for demo)
+	const preventSubmit: Action<HTMLFormElement> = (node) => {
+		const handleSubmit = (event: Event) => {
+			event.preventDefault();
+			// In production, send to email service here
+			alert('Thanks for subscribing! (Demo - no backend connected)');
+		};
+		
+		node.addEventListener('submit', handleSubmit);
+		
+		return {
+			destroy() {
+				node.removeEventListener('submit', handleSubmit);
+			}
+		};
+	};
 	
 	const posts = [
 		{
@@ -132,7 +150,7 @@
 		<section class="newsletter">
 			<h2>Stay Updated</h2>
 			<p>Get notified when we publish new guides. No spam, unsubscribe anytime.</p>
-			<form class="newsletter-form" onsubmit|preventDefault>
+			<form class="newsletter-form" use:preventSubmit>
 				<input type="email" placeholder="your@email.com" required />
 				<button type="submit">Subscribe</button>
 			</form>
