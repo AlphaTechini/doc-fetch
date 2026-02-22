@@ -22,12 +22,10 @@ func main() {
 		log.Fatal("Error: URL is required\nUsage: doc-fetch --url <base-url> --output <file-path>")
 	}
 
-	// Auto-increase depth when --llm-txt is enabled (need to crawl more pages)
+	// Note: --llm-txt does NOT auto-increase depth
+	// It simply extracts URLs from crawled pages and writes them to llm.txt
+	// No additional fetching occurs beyond normal crawl
 	effectiveDepth := *depth
-	if *llmTxt && *depth < 4 {
-		effectiveDepth = 4 // Minimum depth for comprehensive llm.txt
-		log.Printf("📝 llm.txt enabled: increased depth from %d to %d for comprehensive link extraction", *depth, effectiveDepth)
-	}
 
 	// Validate configuration for security
 	config := fetcher.Config{
