@@ -216,14 +216,15 @@ func (f *OptimizedFetcher) processURL(pageURL string, depth int) {
 	// Generate LLM.txt entry if requested
 	if f.config.GenerateLLMTxt {
 		cleanTitle := CleanTitle(title)
-		entryType := ClassifyPage(pageURL, cleanTitle)
-		description := ExtractDescription(content)
-
+		
+		// Try to find this URL in parent page's link context
+		linkText := findLinkTextForURL(doc, pageURL)
+		
 		entry := LLMTxtEntry{
-			Type:        entryType,
+			Type:        ClassifyPage(pageURL, cleanTitle),
 			Title:       cleanTitle,
 			URL:         pageURL,
-			Description: description,
+			Description: linkText, // Use link context as description
 		}
 
 		f.llmMutex.Lock()
@@ -238,6 +239,23 @@ func (f *OptimizedFetcher) processURL(pageURL string, depth int) {
 
 	elapsed := time.Since(startTime)
 	log.Printf("✅ Fetched %s (%.2fs)", pageURL, elapsed.Seconds())
+}
+
+// findLinkTextForURL finds the anchor text for a given URL in the document
+func findLinkTextForURL(doc *goquery.Document, targetURL string) string {
+	var linkText string
+	
+	doc.Find("a[href]").Each(func(i int, a *goquery.Selection) {
+		href, exists := a.Attr("href")
+		if exists && strings.Contains(href, targetURL) || strings.Contains(targetURL, href) {
+			text := strings.TrimSpace(a.Text())
+			if text != "" && linkText == "" {
+				linkText = text
+			}
+		}
+	})
+	
+	return linkText
 }
 
 // extractAndSubmitLinks finds and queues all internal links

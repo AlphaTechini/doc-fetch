@@ -8,7 +8,7 @@ import (
 )
 
 // GenerateLLMTxt creates an llm.txt file with AI-friendly documentation index
-// Format: "Title: URL" (one line per page)
+// Format: "Description Text: URL" (extracted from link context)
 func GenerateLLMTxt(entries []LLMTxtEntry, outputPath string) error {
 	file, err := os.Create(outputPath)
 	if err != nil {
@@ -21,22 +21,33 @@ func GenerateLLMTxt(entries []LLMTxtEntry, outputPath string) error {
 
 	// Write minimal header
 	writer.WriteString("# llm.txt\n")
-	writer.WriteString("# Documentation index for AI agents\n\n")
+	writer.WriteString("# Link index with descriptions\n\n")
 
-	// Write entries in simple format: "Title: URL"
+	// Write entries: use description (link context text) + URL
 	for _, entry := range entries {
-		// Skip entries without title or URL
-		if entry.Title == "" || entry.URL == "" {
+		// Skip entries without URL
+		if entry.URL == "" {
 			continue
 		}
 		
-		// Clean title (remove special chars that might break parsing)
-		cleanTitle := strings.TrimSpace(entry.Title)
-		cleanTitle = strings.ReplaceAll(cleanTitle, "\n", " ")
-		cleanTitle = strings.ReplaceAll(cleanTitle, "  ", " ")
+		// Use description if available, otherwise use title
+		text := entry.Description
+		if text == "" || text == "Documentation page content." {
+			text = entry.Title
+		}
 		
-		// Write in format: "Title: URL"
-		writer.WriteString(fmt.Sprintf("%s: %s\n", cleanTitle, entry.URL))
+		// Clean text (remove newlines, extra spaces)
+		text = strings.TrimSpace(text)
+		text = strings.ReplaceAll(text, "\n", " ")
+		text = strings.ReplaceAll(text, "  ", " ")
+		
+		// Skip if no meaningful text
+		if text == "" {
+			continue
+		}
+		
+		// Write in format: "Description: URL"
+		writer.WriteString(fmt.Sprintf("%s: %s\n", text, entry.URL))
 	}
 
 	return nil
