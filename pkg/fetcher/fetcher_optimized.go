@@ -1,7 +1,6 @@
 package fetcher
 
 import (
-	"bufio"
 	"context"
 	"fmt"
 	"log"
@@ -210,8 +209,8 @@ func (f *OptimizedFetcher) processURL(pageURL string, depth int) {
 		title = pageURL
 	}
 
-	// Send result
-	f.resultsChan <- fmt.Sprintf("## %s\n\n%s\n\n---\n\n", title, content)
+	// Send result with URL for proper grouping
+	f.resultsChan <- fmt.Sprintf("%s\t%s\t%s", pageURL, title, content)
 
 	// Generate LLM.txt entry if requested
 	if f.config.GenerateLLMTxt {
@@ -304,33 +303,35 @@ func isNonHTMLResource(path string) bool {
 	return false
 }
 
-// writeResultsOptimized writes results to file efficiently
+// writeResultsOptimized writes results to file with intelligent grouping
 func writeResultsOptimized(outputPath string, resultsChan <-chan string) error {
-	file, err := os.Create(outputPath)
-	if err != nil {
-		return err
-	}
-	defer file.Close()
-
-	writer := bufio.NewWriterSize(file, 32*1024) // 32KB buffer for better I/O
-	defer writer.Flush()
-
-	// Write header
-	header := "# Documentation\n\nThis file contains documentation fetched by DocFetch.\n\n---\n\n"
-	writer.WriteString(header)
-
-	count := 0
+	// Use ContentGrouper for beautiful organization
+	grouper := NewContentGrouper()
+	
+	// Parse incoming results and add to grouper
 	for result := range resultsChan {
-		if strings.TrimSpace(result) != "" {
-			writer.WriteString(result)
-			count++
-			
-			// Flush periodically to avoid memory buildup
-			if count%10 == 0 {
-				writer.Flush()
-			}
+		if strings.TrimSpace(result) == "" {
+			continue
 		}
+		
+		// Format: "URL\tTitle\tContent" (tab-separated)
+		parts := strings.SplitN(result, "\t", 3)
+		if len(parts) < 3 {
+			log.Printf("⚠️  Skipping malformed result")
+			continue
+		}
+		
+		url := strings.TrimSpace(parts[0])
+		title := strings.TrimSpace(parts[1])
+		content := strings.TrimSpace(parts[2])
+		
+		// Add to appropriate group
+		grouper.AddPage(url, title, content)
 	}
-
-	return nil
+	
+	// Generate beautifully organized markdown
+	output := grouper.GenerateMarkdown()
+	
+	// Write to file
+	return os.WriteFile(outputPath, []byte(output), 0644)
 }
