@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: doc-fetch
-Version: 2.0.7
+Version: 2.0.9
 Summary: Dynamic documentation fetching CLI that converts entire documentation sites to single markdown files for AI/LLM consumption
 Home-page: https://github.com/AlphaTechini/doc-fetch
 Author: AlphaTechini
@@ -112,9 +112,52 @@ doc-fetch \
 | `--url` | `-u` | Base URL to fetch documentation from | **Required** |
 | `--output` | `-o` | Output file path | `docs.md` |
 | `--depth` | `-d` | Maximum crawl depth | `2` |
-| `--concurrent` | `-c` | Number of concurrent fetchers | `3` |
+| `--concurrent` | `-c` | Number of concurrent fetchers | `5` |
 | `--llm-txt` | | Generate AI-friendly llm.txt index | `false` |
 | `--user-agent` | | Custom user agent string | `DocFetch/1.0` |
+
+## ⚡ Advanced Tips for Large Documentation Sites
+
+### Faster Scraping for Large Sites (1000+ pages)
+
+```bash
+# Increase concurrency for faster crawling
+doc-fetch --url https://docs.example.com --output docs.md --concurrent 15
+
+# Reduce depth if you only need top-level pages
+doc-fetch --url https://docs.example.com --output docs.md --depth 2 --concurrent 20
+
+# For massive sites, use multiple passes with different starting URLs
+doc-fetch --url https://docs.example.com/guide --output guide.md --depth 3 --concurrent 10
+doc-fetch --url https://docs.example.com/api --output api.md --depth 3 --concurrent 10
+```
+
+### Recommended Settings by Site Size
+
+| Site Size | Pages | Concurrency | Depth | Time Estimate |
+|-----------|-------|-------------|-------|---------------|
+| Small | <100 | 5 | 3 | ~30 seconds |
+| Medium | 100-500 | 10 | 3 | ~2 minutes |
+| Large | 500-2000 | 15 | 4 | ~5-10 minutes |
+| Very Large | 2000+ | 20 | 4 | ~15-30 minutes |
+
+### Troubleshooting
+
+**"Queue full" warnings**: Increase buffer size by using higher concurrency (`--concurrent 15`)
+
+**Slow initial crawl**: Normal - speed increases as more workers find pages
+
+**Missing pages**: Increase depth (`--depth 4`) or start from multiple entry points
+
+**Rate limiting**: Add delay between requests or reduce concurrency
+
+### Best Practices
+
+1. **Start with conservative settings** (`--concurrent 5`, `--depth 2`)
+2. **Monitor output** for missing sections
+3. **Adjust based on site structure** (some sites have deeper nav trees)
+4. **Use --llm-txt** for AI agent consumption (generates link index)
+5. **Respect robots.txt** - DocFetch honors it automatically
 
 ## 📁 Output Files
 
@@ -139,22 +182,19 @@ This guide covers installation, setup, and first program...
 Complete Go language specification and syntax...
 ```
 
-### `docs.llm.txt` - AI-Friendly Index
+### `docs.llm.txt` - Link Index (v2.0.7+ Format)
 ```txt
-# llm.txt - AI-friendly documentation index
+# llm.txt
+# Link index with descriptions
 
-[GUIDE] Getting Started
-https://golang.org/doc/install
-Covers installation, setup, and first program.
-
-[REFERENCE] Language Specification  
-https://golang.org/ref/spec
-Complete Go language specification and syntax.
-
-[API] net/http
-https://pkg.go.dev/net/http
-HTTP client/server implementation.
+Getting Started: https://golang.org/doc/install
+Language Specification: https://golang.org/ref/spec
+net/http Package: https://pkg.go.dev/net/http
+Installing Go: https://golang.org/doc/install
+Writing Your First Program: https://golang.org/doc/tutorial/create-module
 ```
+
+**NEW in v2.0.7**: Simplified format extracts link text + URL for easy AI parsing. No more verbose descriptions - just clean "Description: URL" format.
 
 ## 🌟 Real-World Examples
 
