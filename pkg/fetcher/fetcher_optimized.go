@@ -35,7 +35,7 @@ type OptimizedFetcher struct {
 
 // RunOptimized executes documentation fetching with maximum concurrency
 func RunOptimized(config Config) error {
-	if err := validateConfig(&config); err != nil {
+	if err := ValidateConfig(&config); err != nil {
 		return fmt.Errorf("invalid configuration: %w", err)
 	}
 
@@ -206,21 +206,28 @@ func (f *OptimizedFetcher) processURL(pageURL string, depth int) {
 		return
 	}
 
-	// Extract content
-	content := cleanContent(doc)
-	if content == "" {
+	// Build hierarchical structure using SectionBuilder (NEW method)
+	builder := NewSectionBuilder(pageURL)
+	builder.BuildFromDocument(doc)
+	
+	// Render to markdown
+	content := builder.GenerateMarkdown()
+	if strings.TrimSpace(content) == "" {
 		atomic.AddInt32(&f.errorCount, 1)
 		log.Printf("⚠️  No content found for %s", pageURL)
 		return
 	}
 
-	// Extract title
-	title := doc.Find("title").Text()
-	if title == "" {
-		title = pageURL
+	// Extract title from first heading or use page title
+	title := builder.GetRoot().Title
+	if title == "Documentation" || title == "" {
+		title = doc.Find("title").Text()
+		if title == "" {
+			title = pageURL
+		}
 	}
 
-	// Send result with URL for proper grouping
+	// Send structured markdown result
 	f.resultsChan <- fmt.Sprintf("%s\t%s\t%s", pageURL, title, content)
 
 	// Extract links with proper DOM traversal (always, for both crawling and llm.txt)
