@@ -32,11 +32,16 @@ func (dw *DOMWalker) ExtractLinks(doc *goquery.Document) []LinkInfo {
 	var links []LinkInfo
 
 	// Find main content container (don't parse entire document)
-	contentContainer := doc.Find("main, article, .content, .docs-content").First()
+	contentContainer := doc.Find("main, article, .content, .docs-content, #content, .document, .documentation").First()
 	
-	// If no container found, use body
+	// If no container found, use body as fallback
 	if contentContainer.Length() == 0 {
 		contentContainer = doc.Find("body")
+	}
+	
+	// If still nothing (no body tag), use entire document
+	if contentContainer.Length() == 0 {
+		contentContainer = doc.Selection
 	}
 
 	// Walk nodes sequentially

@@ -6,7 +6,6 @@ import (
 	"log"
 	"net"
 	"net/http"
-	"net/url"
 	"os"
 	"regexp"
 	"strings"
@@ -224,12 +223,25 @@ func (f *OptimizedFetcher) processURL(pageURL string, depth int) {
 	// Send result with URL for proper grouping
 	f.resultsChan <- fmt.Sprintf("%s\t%s\t%s", pageURL, title, content)
 
-	// Extract links with proper DOM traversal (Phase 1 fix)
+	// Extract links with proper DOM traversal (always, for both crawling and llm.txt)
+	links := ExtractAllLinksFromPage(doc, pageURL)
+	
+	// Submit extracted links for crawling
+	for _, link := range links {
+		if depth < f.config.MaxDepth {
+			f.submitPage(link.URL, depth+1)
+		}
+	}
+	
+	// Add to llm.txt entries if requested
 	if f.config.GenerateLLMTxt {
-		links := ExtractAllLinksFromPage(doc, pageURL)
-		
 		f.llmMutex.Lock()
 		for _, link := range links {
+			// Skip anchor links and external links
+			if strings.HasPrefix(link.URL, "#") || !strings.Contains(link.URL, f.config.BaseURL) {
+				continue
+			}
+			
 			f.llmEntries = append(f.llmEntries, LLMTxtEntry{
 				Type:        ClassifyPage(link.URL, link.Text),
 				Title:       link.Text,
@@ -238,11 +250,6 @@ func (f *OptimizedFetcher) processURL(pageURL string, depth int) {
 			})
 		}
 		f.llmMutex.Unlock()
-	}
-
-	// Extract links for crawling (if depth allows)
-	if depth < f.config.MaxDepth {
-		f.extractAndSubmitLinks(doc, pageURL, depth+1)
 	}
 
 	elapsed := time.Since(startTime)
@@ -264,69 +271,6 @@ func findLinkTextForURL(doc *goquery.Document, targetURL string) string {
 	})
 	
 	return linkText
-}
-
-// extractAndSubmitLinks finds and queues all internal links (including data attributes)
-func (f *OptimizedFetcher) extractAndSubmitLinks(doc *goquery.Document, baseURL string, depth int) {
-	base, err := url.Parse(baseURL)
-	if err != nil {
-		return
-	}
-
-	// Extract links from multiple sources (proper crawling strategy)
-	// Check: href, data-href, data-url (frontend engineers love hiding things)
-	linkSelectors := []string{"a[href]", "a[data-href]", "a[data-url]"}
-	
-	for _, selector := range linkSelectors {
-		doc.Find(selector).Each(func(i int, s *goquery.Selection) {
-			var href string
-			var exists bool
-			
-			// Try href first, then data attributes
-			href, exists = s.Attr("href")
-			if !exists {
-				href, exists = s.Attr("data-href")
-			}
-			if !exists {
-				href, exists = s.Attr("data-url")
-			}
-			
-			if !exists || href == "" {
-				return
-			}
-
-			// Resolve relative URLs
-			resolvedURL, err := base.Parse(href)
-			if err != nil {
-				return
-			}
-
-			// Only follow same-domain links
-			if resolvedURL.Host != "" && resolvedURL.Host != base.Host {
-				return
-			}
-
-			// Skip non-HTML resources
-			if isNonHTMLResource(resolvedURL.Path) {
-				return
-			}
-
-			f.submitPage(resolvedURL.String(), depth)
-		})
-	}
-}
-
-// isNonHTMLResource checks if URL points to non-HTML resources
-func isNonHTMLResource(path string) bool {
-	extensions := []string{".pdf", ".zip", ".tar", ".gz", ".exe", ".dmg", ".pkg", ".deb", ".rpm"}
-	pathLower := strings.ToLower(path)
-	
-	for _, ext := range extensions {
-		if strings.HasSuffix(pathLower, ext) {
-			return true
-		}
-	}
-	return false
 }
 
 // writeResultsOptimized writes results using hierarchical section building
