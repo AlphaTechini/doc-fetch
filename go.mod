@@ -1,6 +1,6 @@
 module github.com/AlphaTechini/doc-fetch
 
-go 1.21
+go 1.24.0
 
 require (
 	github.com/PuerkitoBio/goquery v1.8.1
@@ -8,4 +8,7 @@ require (
 	golang.org/x/net v0.17.0
 )
 
-require github.com/andybalholm/cascadia v1.3.1 // indirect
+require (
+	github.com/andybalholm/cascadia v1.3.1 // indirect
+	golang.org/x/time v0.14.0 // indirect
+)

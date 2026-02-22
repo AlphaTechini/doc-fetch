@@ -14,21 +14,23 @@ import (
 	"time"
 
 	"github.com/PuerkitoBio/goquery"
+	"golang.org/x/time/rate"
 )
 
-// OptimizedFetcher uses advanced Go concurrency patterns for 10x speedup
+// OptimizedFetcher uses worker pool pattern for controlled concurrency
 type OptimizedFetcher struct {
-	config        Config
-	httpClient    *http.Client
-	urlQueue      chan string
-	visited       sync.Map // Concurrent map instead of mutex-protected map
-	resultsChan   chan string
-	llmEntries    []LLMTxtEntry
-	llmMutex      sync.Mutex
-	pageCount     int32
-	errorCount    int32
-	ctx           context.Context
-	cancel        context.CancelFunc
+	config      Config
+	httpClient  *http.Client
+	jobs        chan string        // Buffered job queue (worker pool pattern)
+	visited     sync.Map           // Concurrent-safe URL deduplication
+	resultsChan chan string        // Results writer channel
+	llmEntries  []LLMTxtEntry
+	llmMutex    sync.Mutex
+	pageCount   int32
+	errorCount  int32
+	ctx         context.Context
+	cancel      context.CancelFunc
+	rateLimiter *rate.Limiter      // Rate limiting to prevent DDoS
 }
 
 // RunOptimized executes documentation fetching with maximum concurrency
@@ -38,16 +40,23 @@ func RunOptimized(config Config) error {
 	}
 
 	log.Printf("🚀 Starting HIGH-PERFORMANCE documentation fetch from: %s", config.BaseURL)
-	log.Printf("   Workers: %d | Max Depth: %d | Queue Size: %d", config.Workers, config.MaxDepth, config.Workers*500)
+	log.Printf("   Workers: %d | Max Depth: %d | Rate Limit: %d req/sec", config.Workers, config.MaxDepth, config.Workers*2)
 
-	// Increase queue sizes to prevent "queue full" warnings
-	// URL queue: 500 per worker (was 100) - prevents dropping URLs during burst
-	// Results queue: 100 per worker (was 10) - prevents blocking writers
+	// Create rate limiter (prevent DDoS, be civilized)
+	// Allow burst of workers*2, then sustain at workers per second
+	rateLimiter := rate.NewLimiter(rate.Limit(config.Workers), config.Workers*2)
+
+	// Buffered channels for worker pool pattern
+	jobs := make(chan string, config.Workers*10)  // Job queue
+	resultsChan := make(chan string, config.Workers*100)  // Results buffer
+
 	fetcher := &OptimizedFetcher{
 		config:      config,
-		urlQueue:    make(chan string, config.Workers*500),
-		resultsChan: make(chan string, config.Workers*100),
-		httpClient: createOptimizedHTTPClient(config.Workers),
+		jobs:        jobs,
+		resultsChan: resultsChan,
+		httpClient:  createOptimizedHTTPClient(config.Workers),
+		rateLimiter: rateLimiter,
+		ctx:         context.Background(),
 	}
 
 	fetcher.ctx, fetcher.cancel = context.WithTimeout(context.Background(), 10*time.Minute)
@@ -59,26 +68,27 @@ func RunOptimized(config Config) error {
 	var writeWg sync.WaitGroup
 	writeWg.Add(1)
 	go func() {
-		defer writeWg.Add(-1)
-		writeResultsOptimized(config.OutputPath, fetcher.resultsChan)
+		defer writeWg.Done()
+		if err := writeResultsOptimized(config.OutputPath, resultsChan); err != nil {
+			log.Printf("❌ Error writing results: %v", err)
+		}
 	}()
 
-	// Start worker pool
+	// Start worker pool (controlled concurrency)
 	var workerWg sync.WaitGroup
 	for i := 0; i < config.Workers; i++ {
 		workerWg.Add(1)
-		go fetcher.worker(i, &workerWg)
+		go fetcher.worker(i, &workerWg, rateLimiter)
 	}
 
-	// Submit initial URL
+	// Submit initial URL to job queue
 	fetcher.submitPage(config.BaseURL, 0)
 
-	// Wait for all workers to complete (they drain the URL queue)
+	// Wait for all workers to complete
 	workerWg.Wait()
 	
-	// Close channels in correct order to signal completion
-	close(fetcher.urlQueue)    // No more URLs will be submitted
-	close(fetcher.resultsChan) // No more results will be written
+	// Close results channel (no more results will be written)
+	close(resultsChan)
 
 	// Wait for results writer to finish
 	writeWg.Wait()
@@ -125,38 +135,39 @@ func createOptimizedHTTPClient(workers int) *http.Client {
 	}
 }
 
-// worker processes URLs from the submission queue
-func (f *OptimizedFetcher) worker(id int, wg *sync.WaitGroup) {
+// worker processes URLs from job queue with rate limiting
+func (f *OptimizedFetcher) worker(id int, wg *sync.WaitGroup, limiter *rate.Limiter) {
 	defer wg.Done()
 	
-	for url := range f.urlQueue {
+	for pageURL := range f.jobs {
 		select {
 		case <-f.ctx.Done():
 			return
 		default:
-			f.processURL(url, 0)
+			// Wait for rate limiter (be civilized, don't DDoS)
+			if err := limiter.Wait(f.ctx); err != nil {
+				log.Printf("⚠️  Rate limit error: %v", err)
+				continue
+			}
+			
+			f.processURL(pageURL, 0)
 		}
 	}
 }
 
-// submitPage adds a URL to be fetched (with depth tracking)
+// submitPage adds a URL to job queue (with depth tracking and deduplication)
 func (f *OptimizedFetcher) submitPage(pageURL string, depth int) {
 	if depth > f.config.MaxDepth {
 		return
 	}
 
-	// Check if already visited using atomic operation
+	// Deduplicate URLs (concurrent-safe)
 	if _, loaded := f.visited.LoadOrStore(pageURL, true); loaded {
 		return
 	}
 
-	select {
-	case f.urlQueue <- pageURL:
-		// Successfully queued
-	default:
-		// Queue full, skip this URL
-		log.Printf("⚠️  Queue full, skipping: %s", pageURL)
-	}
+	// Submit to job queue (buffered, so rarely blocks)
+	f.jobs <- pageURL
 }
 
 // processURL fetches and processes a single URL
@@ -257,37 +268,54 @@ func findLinkTextForURL(doc *goquery.Document, targetURL string) string {
 	return linkText
 }
 
-// extractAndSubmitLinks finds and queues all internal links
+// extractAndSubmitLinks finds and queues all internal links (including data attributes)
 func (f *OptimizedFetcher) extractAndSubmitLinks(doc *goquery.Document, baseURL string, depth int) {
 	base, err := url.Parse(baseURL)
 	if err != nil {
 		return
 	}
 
-	doc.Find("a[href]").Each(func(i int, s *goquery.Selection) {
-		href, exists := s.Attr("href")
-		if !exists {
-			return
-		}
+	// Extract links from multiple sources (proper crawling strategy)
+	// Check: href, data-href, data-url (frontend engineers love hiding things)
+	linkSelectors := []string{"a[href]", "a[data-href]", "a[data-url]"}
+	
+	for _, selector := range linkSelectors {
+		doc.Find(selector).Each(func(i int, s *goquery.Selection) {
+			var href string
+			var exists bool
+			
+			// Try href first, then data attributes
+			href, exists = s.Attr("href")
+			if !exists {
+				href, exists = s.Attr("data-href")
+			}
+			if !exists {
+				href, exists = s.Attr("data-url")
+			}
+			
+			if !exists || href == "" {
+				return
+			}
 
-		// Resolve relative URLs
-		resolvedURL, err := base.Parse(href)
-		if err != nil {
-			return
-		}
+			// Resolve relative URLs
+			resolvedURL, err := base.Parse(href)
+			if err != nil {
+				return
+			}
 
-		// Only follow same-domain links
-		if resolvedURL.Host != "" && resolvedURL.Host != base.Host {
-			return
-		}
+			// Only follow same-domain links
+			if resolvedURL.Host != "" && resolvedURL.Host != base.Host {
+				return
+			}
 
-		// Skip non-HTML resources
-		if isNonHTMLResource(resolvedURL.Path) {
-			return
-		}
+			// Skip non-HTML resources
+			if isNonHTMLResource(resolvedURL.Path) {
+				return
+			}
 
-		f.submitPage(resolvedURL.String(), depth)
-	})
+			f.submitPage(resolvedURL.String(), depth)
+		})
+	}
 }
 
 // isNonHTMLResource checks if URL points to non-HTML resources
