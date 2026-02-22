@@ -39,12 +39,15 @@ func RunOptimized(config Config) error {
 	}
 
 	log.Printf("🚀 Starting HIGH-PERFORMANCE documentation fetch from: %s", config.BaseURL)
-	log.Printf("   Workers: %d | Max Depth: %d | Concurrency: Enabled", config.Workers, config.MaxDepth)
+	log.Printf("   Workers: %d | Max Depth: %d | Queue Size: %d", config.Workers, config.MaxDepth, config.Workers*500)
 
+	// Increase queue sizes to prevent "queue full" warnings
+	// URL queue: 500 per worker (was 100) - prevents dropping URLs during burst
+	// Results queue: 100 per worker (was 10) - prevents blocking writers
 	fetcher := &OptimizedFetcher{
 		config:      config,
-		urlQueue:    make(chan string, config.Workers*100), // Large buffer for URLs
-		resultsChan: make(chan string, config.Workers*10), // Larger buffer
+		urlQueue:    make(chan string, config.Workers*500),
+		resultsChan: make(chan string, config.Workers*100),
 		httpClient: createOptimizedHTTPClient(config.Workers),
 	}
 
@@ -71,17 +74,14 @@ func RunOptimized(config Config) error {
 	// Submit initial URL
 	fetcher.submitPage(config.BaseURL, 0)
 
-	// Close URL queue when all pages are processed
-	go func() {
-		workerWg.Wait()
-		close(fetcher.urlQueue)
-	}()
-
-	// Wait for all workers to complete
+	// Wait for all workers to complete (they drain the URL queue)
 	workerWg.Wait()
-	close(fetcher.resultsChan)
+	
+	// Close channels in correct order to signal completion
+	close(fetcher.urlQueue)    // No more URLs will be submitted
+	close(fetcher.resultsChan) // No more results will be written
 
-	// Wait for results to be written
+	// Wait for results writer to finish
 	writeWg.Wait()
 
 	elapsed := time.Since(startTime)
@@ -90,9 +90,9 @@ func RunOptimized(config Config) error {
 
 	log.Printf("✅ Fetch completed!")
 	log.Printf("   📊 Pages fetched: %d", pagesFetched)
-	log.Printf("   ⏱️  Time elapsed: %v", elapsed)
-	log.Printf("   📈 Speed: %.2f pages/second", float64(pagesFetched)/elapsed.Seconds())
+	log.Printf("   ⏱️  Time elapsed: %v (%.2f pages/sec)", elapsed, float64(pagesFetched)/elapsed.Seconds())
 	log.Printf("   ❌ Errors: %d", errors)
+	log.Printf("💡 Tip: Use --concurrent <N> to adjust parallelism (current: %d)", config.Workers)
 
 	// Generate LLM.txt if requested
 	if config.GenerateLLMTxt && len(fetcher.llmEntries) > 0 {

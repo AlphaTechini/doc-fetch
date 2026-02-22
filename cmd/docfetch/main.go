@@ -12,7 +12,7 @@ func main() {
 	url := flag.String("url", "", "Base URL to fetch documentation from")
 	output := flag.String("output", "docs.md", "Output file path")
 	depth := flag.Int("depth", 2, "Maximum crawl depth")
-	concurrent := flag.Int("concurrent", 3, "Concurrent fetchers")
+	concurrent := flag.Int("concurrent", 5, "Concurrent fetchers (default: 5)")
 	userAgent := flag.String("user-agent", "DocFetch/1.0", "Custom user agent")
 	llmTxt := flag.Bool("llm-txt", false, "Generate llm.txt index file")
 
