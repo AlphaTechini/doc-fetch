@@ -118,7 +118,7 @@ with open("README.md", "r", encoding="utf-8") as fh:
 
 setup(
     name="doc-fetch",
-    version="2.4.0",
+    version="2.4.1",
     author="AlphaTechini",
     author_email="rehobothokoibu@gmail.com",
     description="Dynamic documentation fetching CLI that converts entire documentation sites to single markdown files for AI/LLM consumption",
