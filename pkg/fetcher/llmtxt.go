@@ -8,6 +8,7 @@ import (
 )
 
 // GenerateLLMTxt creates an llm.txt file with AI-friendly documentation index
+// Format: "Title: URL" (one line per page)
 func GenerateLLMTxt(entries []LLMTxtEntry, outputPath string) error {
 	file, err := os.Create(outputPath)
 	if err != nil {
@@ -18,18 +19,24 @@ func GenerateLLMTxt(entries []LLMTxtEntry, outputPath string) error {
 	writer := bufio.NewWriter(file)
 	defer writer.Flush()
 
-	// Write header
-	writer.WriteString("# llm.txt - AI-friendly documentation index\n")
-	writer.WriteString("# This file helps LLMs quickly find relevant documentation sections\n\n")
+	// Write minimal header
+	writer.WriteString("# llm.txt\n")
+	writer.WriteString("# Documentation index for AI agents\n\n")
 
+	// Write entries in simple format: "Title: URL"
 	for _, entry := range entries {
-		// Write entry in the format: [TYPE] Title
-		writer.WriteString(fmt.Sprintf("[%s] %s\n", 
-			strings.ToUpper(entry.Type), entry.Title))
-		// Write URL
-		writer.WriteString(entry.URL + "\n")
-		// Write description
-		writer.WriteString(entry.Description + "\n\n")
+		// Skip entries without title or URL
+		if entry.Title == "" || entry.URL == "" {
+			continue
+		}
+		
+		// Clean title (remove special chars that might break parsing)
+		cleanTitle := strings.TrimSpace(entry.Title)
+		cleanTitle = strings.ReplaceAll(cleanTitle, "\n", " ")
+		cleanTitle = strings.ReplaceAll(cleanTitle, "  ", " ")
+		
+		// Write in format: "Title: URL"
+		writer.WriteString(fmt.Sprintf("%s: %s\n", cleanTitle, entry.URL))
 	}
 
 	return nil
