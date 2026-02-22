@@ -22,14 +22,22 @@ func main() {
 		log.Fatal("Error: URL is required\nUsage: doc-fetch --url <base-url> --output <file-path>")
 	}
 
+	// Auto-increase depth when --llm-txt is enabled (need to crawl more pages)
+	effectiveDepth := *depth
+	if *llmTxt && *depth < 4 {
+		effectiveDepth = 4 // Minimum depth for comprehensive llm.txt
+		log.Printf("📝 llm.txt enabled: increased depth from %d to %d for comprehensive link extraction", *depth, effectiveDepth)
+	}
+
 	// Validate configuration for security
 	config := fetcher.Config{
 		BaseURL:         *url,
 		OutputPath:      *output,
-		MaxDepth:        *depth,
+		MaxDepth:        effectiveDepth,
 		Workers:         *concurrent,
 		UserAgent:       *userAgent,
 		GenerateLLMTxt:  *llmTxt,
+		LLMTxtPath:      getLLMTxtPath(*output),
 	}
 
 	if err := fetcher.ValidateConfig(&config); err != nil {
@@ -52,4 +60,12 @@ func main() {
 		}
 		log.Printf("LLM.txt index generated: %s", llmTxtPath)
 	}
+}
+
+// getLLMTxtPath returns the llm.txt output path based on main output path
+func getLLMTxtPath(outputPath string) string {
+	if strings.HasSuffix(outputPath, ".md") {
+		return strings.TrimSuffix(outputPath, ".md") + ".llm.txt"
+	}
+	return outputPath + ".llm.txt"
 }
