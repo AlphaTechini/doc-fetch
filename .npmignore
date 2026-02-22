@@ -1,6 +1,9 @@
-# Go build artifacts (keep the main binary)
-doc-fetch_darwin_amd64
-doc-fetch_windows_amd64.exe
+# Go build artifacts (INCLUDE ALL for cross-platform support)
+# These are required for postinstall to work
+!doc-fetch_linux_amd64
+!doc-fetch_darwin_amd64
+!doc-fetch_darwin_arm64
+!doc-fetch_windows_amd64.exe
 
 # Python package files
 dist/
