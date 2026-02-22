@@ -122,27 +122,51 @@ func (sb *SectionBuilder) currentSection() *Section {
 	return sb.stack[len(sb.stack)-1]
 }
 
-// renderNode converts HTML node to markdown text
+// renderNode converts HTML node to markdown text with block awareness
 func (sb *SectionBuilder) renderNode(node *html.Node) string {
 	switch node.Data {
+	case "h1":
+		return "# " + strings.TrimSpace(sb.renderChildren(node)) + "\n\n"
+	case "h2":
+		return "## " + strings.TrimSpace(sb.renderChildren(node)) + "\n\n"
+	case "h3":
+		return "### " + strings.TrimSpace(sb.renderChildren(node)) + "\n\n"
+	case "h4":
+		return "#### " + strings.TrimSpace(sb.renderChildren(node)) + "\n\n"
+	case "h5":
+		return "##### " + strings.TrimSpace(sb.renderChildren(node)) + "\n\n"
+	case "h6":
+		return "###### " + strings.TrimSpace(sb.renderChildren(node)) + "\n\n"
 	case "p":
-		return sb.renderChildren(node)
+		return sb.renderChildren(node) + "\n\n"
 	case "br":
 		return "\n"
+	case "hr":
+		return "---\n\n"
 	case "strong", "b":
 		return "**" + sb.renderChildren(node) + "**"
 	case "em", "i":
 		return "*" + sb.renderChildren(node) + "*"
 	case "code":
+		// Check if parent is pre (block code) or inline
+		if node.Parent != nil && node.Parent.Data == "pre" {
+			return sb.renderChildren(node)
+		}
 		return "`" + sb.renderChildren(node) + "`"
 	case "pre":
-		return "```\n" + sb.renderChildren(node) + "\n```"
+		return "```\n" + sb.renderChildren(node) + "\n```\n\n"
 	case "ul":
-		return sb.renderList(node, false)
+		return sb.renderList(node, false) + "\n"
 	case "ol":
-		return sb.renderList(node, true)
+		return sb.renderList(node, true) + "\n"
+	case "li":
+		return sb.renderChildren(node)
 	case "a":
 		return sb.renderLink(node)
+	case "table":
+		return sb.renderTable(node) + "\n\n"
+	case "blockquote":
+		return "> " + sb.renderChildren(node) + "\n\n"
 	default:
 		return sb.renderChildren(node)
 	}
@@ -184,6 +208,47 @@ func (sb *SectionBuilder) renderList(node *html.Node, ordered bool) string {
 		}
 	}
 
+	return result.String()
+}
+
+// renderTable converts HTML table to markdown table
+func (sb *SectionBuilder) renderTable(node *html.Node) string {
+	var result strings.Builder
+	
+	rowNum := 0
+	for row := node.FirstChild; row != nil; row = row.NextSibling {
+		if row.Data != "tr" {
+			continue
+		}
+		
+		result.WriteString("| ")
+		colNum := 0
+		
+		for cell := row.FirstChild; cell != nil; cell = cell.NextSibling {
+			if cell.Data != "td" && cell.Data != "th" {
+				continue
+			}
+			
+			if colNum > 0 {
+				result.WriteString(" | ")
+			}
+			result.WriteString(strings.TrimSpace(sb.renderChildren(cell)))
+			colNum++
+		}
+		result.WriteString(" |\n")
+		
+		// Add separator after header row
+		if rowNum == 0 {
+			result.WriteString("|")
+			for i := 0; i < colNum; i++ {
+				result.WriteString(" --- |")
+			}
+			result.WriteString("\n")
+		}
+		
+		rowNum++
+	}
+	
 	return result.String()
 }
 

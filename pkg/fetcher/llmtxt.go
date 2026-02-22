@@ -4,11 +4,10 @@ import (
 	"bufio"
 	"fmt"
 	"os"
-	"strings"
 )
 
-// GenerateLLMTxt creates an llm.txt file with AI-friendly documentation index
-// Format: "Description Text: URL" (extracted from link context)
+// GenerateLLMTxt creates clean structured llm.txt index
+// Format follows hierarchical structure: Title → Section → Subsection
 func GenerateLLMTxt(entries []LLMTxtEntry, outputPath string) error {
 	file, err := os.Create(outputPath)
 	if err != nil {
@@ -19,35 +18,32 @@ func GenerateLLMTxt(entries []LLMTxtEntry, outputPath string) error {
 	writer := bufio.NewWriter(file)
 	defer writer.Flush()
 
-	// Write minimal header
-	writer.WriteString("# llm.txt\n")
-	writer.WriteString("# Link index with descriptions\n\n")
-
-	// Write entries: use description (link context text) + URL
+	// Group entries by page/title for hierarchical output
+	pageSections := make(map[string][]LLMTxtEntry)
 	for _, entry := range entries {
-		// Skip entries without URL
-		if entry.URL == "" {
-			continue
+		pageSections[entry.Title] = append(pageSections[entry.Title], entry)
+	}
+
+	// Write header
+	writer.WriteString("# Documentation Index\n\n")
+	
+	// Write each page with sections
+	for title, sections := range pageSections {
+		// Page title
+		writer.WriteString(fmt.Sprintf("# %s\n\n", title))
+		
+		// Sections/subsections
+		for _, section := range sections {
+			if section.Description != "" && section.Description != "Documentation page content." {
+				// Description from link context
+				writer.WriteString(fmt.Sprintf("%s\n", section.Description))
+			}
+			
+			// Source URL
+			writer.WriteString(fmt.Sprintf("---\nSource: %s\n\n", section.URL))
 		}
 		
-		// Use description if available, otherwise use title
-		text := entry.Description
-		if text == "" || text == "Documentation page content." {
-			text = entry.Title
-		}
-		
-		// Clean text (remove newlines, extra spaces)
-		text = strings.TrimSpace(text)
-		text = strings.ReplaceAll(text, "\n", " ")
-		text = strings.ReplaceAll(text, "  ", " ")
-		
-		// Skip if no meaningful text
-		if text == "" {
-			continue
-		}
-		
-		// Write in format: "Description: URL"
-		writer.WriteString(fmt.Sprintf("%s: %s\n", text, entry.URL))
+		writer.WriteString("---\n\n")
 	}
 
 	return nil

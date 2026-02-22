@@ -76,14 +76,16 @@ doc-fetch \
 ```
 
 ### Command Options
-| Flag | Short | Description | Default |
-|------|-------|-------------|---------|
-| `--url` | `-u` | Base URL to fetch documentation from | **Required** |
-| `--output` | `-o` | Output file path | `docs.md` |
-| `--depth` | `-d` | Maximum crawl depth | `2` |
-| `--concurrent` | `-c` | Number of concurrent fetchers | `5` |
-| `--llm-txt` | | Generate AI-friendly llm.txt index | `false` |
-| `--user-agent` | | Custom user agent string | `DocFetch/1.0` |
+| Flag | Description | Default |
+|------|-------------|---------|
+| `--url` | Base URL to fetch documentation from | **Required** |
+| `--output` | Output file path | `docs.md` |
+| `--depth` | Maximum crawl depth | `2` |
+| `--concurrent` | Number of concurrent workers | `5` |
+| `--llm-txt` | Generate AI-friendly llm.txt index | `false` |
+| `--user-agent` | Custom user agent string | `DocFetch/1.0` |
+
+**Note**: Short flags (e.g., `-c`, `-d`) have been removed for clarity. Use full flag names only.
 
 ## ⚡ Advanced Tips for Large Documentation Sites
 
