@@ -3,7 +3,6 @@ package main
 import (
 	"flag"
 	"log"
-	"strings"
 
 	"github.com/AlphaTechini/doc-fetch/pkg/fetcher"
 )
@@ -22,20 +21,29 @@ func main() {
 		log.Fatal("Error: URL is required\nUsage: doc-fetch --url <base-url> --output <file-path>")
 	}
 
-	// Note: --llm-txt does NOT auto-increase depth
-	// It simply extracts URLs from crawled pages and writes them to llm.txt
-	// No additional fetching occurs beyond normal crawl
 	effectiveDepth := *depth
+
+	// Default to depth 4 for --llm-txt if depth wasn't explicitly set
+	if *llmTxt {
+		depthSet := false
+		flag.Visit(func(f *flag.Flag) {
+			if f.Name == "depth" {
+				depthSet = true
+			}
+		})
+		if !depthSet {
+			effectiveDepth = 4
+		}
+	}
 
 	// Validate configuration for security
 	config := fetcher.Config{
-		BaseURL:         *url,
-		OutputPath:      *output,
-		MaxDepth:        effectiveDepth,
-		Workers:         *concurrent,
-		UserAgent:       *userAgent,
-		GenerateLLMTxt:  *llmTxt,
-		LLMTxtPath:      getLLMTxtPath(*output),
+		BaseURL:        *url,
+		OutputPath:     *output,
+		MaxDepth:       effectiveDepth,
+		Workers:        *concurrent,
+		UserAgent:      *userAgent,
+		GenerateLLMTxt: *llmTxt,
 	}
 
 	if err := fetcher.ValidateConfig(&config); err != nil {
@@ -48,22 +56,9 @@ func main() {
 		log.Fatalf("Failed to fetch documentation: %v", err)
 	}
 
-	log.Printf("Documentation successfully saved to %s", *output)
 	if *llmTxt {
-		llmTxtPath := *output
-		if strings.HasSuffix(*output, ".md") {
-			llmTxtPath = strings.TrimSuffix(*output, ".md") + ".llm.txt"
-		} else {
-			llmTxtPath = *output + ".llm.txt"
-		}
-		log.Printf("LLM.txt index generated: %s", llmTxtPath)
+		log.Printf("LLM.txt index generated: %s", *output)
+	} else {
+		log.Printf("Documentation successfully saved to %s", *output)
 	}
-}
-
-// getLLMTxtPath returns the llm.txt output path based on main output path
-func getLLMTxtPath(outputPath string) string {
-	if strings.HasSuffix(outputPath, ".md") {
-		return strings.TrimSuffix(outputPath, ".md") + ".llm.txt"
-	}
-	return outputPath + ".llm.txt"
 }

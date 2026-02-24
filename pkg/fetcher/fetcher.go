@@ -6,13 +6,12 @@ import (
 
 // Config holds the fetcher configuration
 type Config struct {
-	BaseURL         string
-	OutputPath      string
-	MaxDepth        int
-	Workers         int
-	UserAgent       string
-	GenerateLLMTxt  bool
-	LLMTxtPath      string
+	BaseURL        string
+	OutputPath     string
+	MaxDepth       int
+	Workers        int
+	UserAgent      string
+	GenerateLLMTxt bool
 }
 
 // LLMTxtEntry represents a single entry in llm.txt

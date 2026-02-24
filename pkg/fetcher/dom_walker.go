@@ -33,12 +33,12 @@ func (dw *DOMWalker) ExtractLinks(doc *goquery.Document) []LinkInfo {
 
 	// Find main content container (don't parse entire document)
 	contentContainer := doc.Find("main, article, .content, .docs-content, #content, .document, .documentation").First()
-	
+
 	// If no container found, use body as fallback
 	if contentContainer.Length() == 0 {
 		contentContainer = doc.Find("body")
 	}
-	
+
 	// If still nothing (no body tag), use entire document
 	if contentContainer.Length() == 0 {
 		contentContainer = doc.Selection
@@ -76,10 +76,10 @@ func (dw *DOMWalker) walkNode(s *goquery.Selection, links *[]LinkInfo, currentTe
 				if exists && href != "" {
 					// Resolve relative URL
 					resolvedURL := dw.resolveURL(href)
-					
+
 					// Get link text
 					linkText := strings.TrimSpace(singleNode.Text())
-					
+
 					// Combine with accumulated context
 					context := strings.TrimSpace(currentText)
 					if context != "" {
@@ -93,18 +93,18 @@ func (dw *DOMWalker) walkNode(s *goquery.Selection, links *[]LinkInfo, currentTe
 						Text:    linkText,
 						Context: context,
 					})
-					
+
 					// Reset text accumulator after link
 					currentText = ""
 				}
 			} else if node.Data == "p" || node.Data == "li" || node.Data == "div" {
 				// Block element - process its contents
-				childSel := goquery.NewDocumentFromNode(node).Selection
+				childSel := goquery.NewDocumentFromNode(node).Selection.Contents()
 				dw.walkNode(childSel, links, currentText)
 				currentText = "" // Reset after block
 			} else {
 				// Inline element or other - recurse
-				childSel := goquery.NewDocumentFromNode(node).Selection
+				childSel := goquery.NewDocumentFromNode(node).Selection.Contents()
 				dw.walkNode(childSel, links, currentText)
 			}
 		}

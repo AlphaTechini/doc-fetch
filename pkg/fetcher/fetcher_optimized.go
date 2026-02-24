@@ -21,16 +21,17 @@ import (
 type OptimizedFetcher struct {
 	config      Config
 	httpClient  *http.Client
-	jobs        chan string        // Buffered job queue (worker pool pattern)
-	visited     sync.Map           // Concurrent-safe URL deduplication
-	resultsChan chan string        // Results writer channel
+	jobs        chan string    // Buffered job queue (worker pool pattern)
+	visited     sync.Map       // Concurrent-safe URL deduplication
+	activeJobs  sync.WaitGroup // Track active jobs to shut down gracefully
+	resultsChan chan string    // Results writer channel
 	llmEntries  []LLMTxtEntry
 	llmMutex    sync.Mutex
 	pageCount   int32
 	errorCount  int32
 	ctx         context.Context
 	cancel      context.CancelFunc
-	rateLimiter *rate.Limiter      // Rate limiting to prevent DDoS
+	rateLimiter *rate.Limiter // Rate limiting to prevent DDoS
 }
 
 // RunOptimized executes documentation fetching with maximum concurrency
@@ -47,8 +48,8 @@ func RunOptimized(config Config) error {
 	rateLimiter := rate.NewLimiter(rate.Limit(config.Workers), config.Workers*2)
 
 	// Buffered channels for worker pool pattern
-	jobs := make(chan string, config.Workers*10)  // Job queue
-	resultsChan := make(chan string, config.Workers*100)  // Results buffer
+	jobs := make(chan string, config.Workers*10)         // Job queue
+	resultsChan := make(chan string, config.Workers*100) // Results buffer
 
 	fetcher := &OptimizedFetcher{
 		config:      config,
@@ -63,16 +64,18 @@ func RunOptimized(config Config) error {
 	defer fetcher.cancel()
 
 	startTime := time.Now()
-	
+
 	// Start result writer in background
 	var writeWg sync.WaitGroup
-	writeWg.Add(1)
-	go func() {
-		defer writeWg.Done()
-		if err := writeResultsOptimized(config.OutputPath, resultsChan); err != nil {
-			log.Printf("❌ Error writing results: %v", err)
-		}
-	}()
+	if !config.GenerateLLMTxt {
+		writeWg.Add(1)
+		go func() {
+			defer writeWg.Done()
+			if err := writeResultsOptimized(config.OutputPath, resultsChan); err != nil {
+				log.Printf("❌ Error writing results: %v", err)
+			}
+		}()
+	}
 
 	// Start worker pool (controlled concurrency)
 	var workerWg sync.WaitGroup
@@ -84,9 +87,15 @@ func RunOptimized(config Config) error {
 	// Submit initial URL to job queue
 	fetcher.submitPage(config.BaseURL, 0)
 
+	// Graceful shutdown of job queue when all processing finishes
+	go func() {
+		fetcher.activeJobs.Wait()
+		close(jobs)
+	}()
+
 	// Wait for all workers to complete
 	workerWg.Wait()
-	
+
 	// Close results channel (no more results will be written)
 	close(resultsChan)
 
@@ -104,12 +113,15 @@ func RunOptimized(config Config) error {
 	log.Printf("💡 Tip: Use --concurrent <N> to adjust parallelism (current: %d)", config.Workers)
 
 	// Generate LLM.txt if requested
-	if config.GenerateLLMTxt && len(fetcher.llmEntries) > 0 {
-		llmTxtPath := strings.TrimSuffix(config.OutputPath, ".md") + ".llm.txt"
-		if err := GenerateLLMTxt(fetcher.llmEntries, llmTxtPath); err != nil {
-			log.Printf("⚠️  Warning: Failed to generate llm.txt: %v", err)
+	if config.GenerateLLMTxt {
+		if len(fetcher.llmEntries) > 0 {
+			if err := GenerateLLMTxt(fetcher.llmEntries, config.OutputPath); err != nil {
+				log.Printf("⚠️  Warning: Failed to generate llm.txt: %v", err)
+			} else {
+				log.Printf("📝 LLM.txt generated: %s (%d entries)", config.OutputPath, len(fetcher.llmEntries))
+			}
 		} else {
-			log.Printf("📝 LLM.txt generated: %s (%d entries)", llmTxtPath, len(fetcher.llmEntries))
+			log.Printf("📝 LLM.txt generated: %s (0 entries)", config.OutputPath)
 		}
 	}
 
@@ -138,19 +150,22 @@ func createOptimizedHTTPClient(workers int) *http.Client {
 // worker processes URLs from job queue with rate limiting
 func (f *OptimizedFetcher) worker(id int, wg *sync.WaitGroup, limiter *rate.Limiter) {
 	defer wg.Done()
-	
+
 	for pageURL := range f.jobs {
 		select {
 		case <-f.ctx.Done():
+			f.activeJobs.Done()
 			return
 		default:
 			// Wait for rate limiter (be civilized, don't DDoS)
 			if err := limiter.Wait(f.ctx); err != nil {
 				log.Printf("⚠️  Rate limit error: %v", err)
+				f.activeJobs.Done()
 				continue
 			}
-			
+
 			f.processURL(pageURL, 0)
+			f.activeJobs.Done()
 		}
 	}
 }
@@ -167,7 +182,10 @@ func (f *OptimizedFetcher) submitPage(pageURL string, depth int) {
 	}
 
 	// Submit to job queue (buffered, so rarely blocks)
-	f.jobs <- pageURL
+	f.activeJobs.Add(1)
+	go func() {
+		f.jobs <- pageURL
+	}()
 }
 
 // processURL fetches and processes a single URL
@@ -175,7 +193,7 @@ func (f *OptimizedFetcher) processURL(pageURL string, depth int) {
 	atomic.AddInt32(&f.pageCount, 1)
 
 	startTime := time.Now()
-	
+
 	// Validate URL
 	if err := isValidURL(pageURL); err != nil {
 		atomic.AddInt32(&f.errorCount, 1)
@@ -209,7 +227,7 @@ func (f *OptimizedFetcher) processURL(pageURL string, depth int) {
 	// Build hierarchical structure using SectionBuilder (NEW method)
 	builder := NewSectionBuilder(pageURL)
 	builder.BuildFromDocument(doc)
-	
+
 	// Render to markdown
 	content := builder.GenerateMarkdown()
 	if strings.TrimSpace(content) == "" {
@@ -228,18 +246,20 @@ func (f *OptimizedFetcher) processURL(pageURL string, depth int) {
 	}
 
 	// Send structured markdown result
-	f.resultsChan <- fmt.Sprintf("%s\t%s\t%s", pageURL, title, content)
+	if !f.config.GenerateLLMTxt {
+		f.resultsChan <- fmt.Sprintf("%s\t%s\t%s", pageURL, title, content)
+	}
 
 	// Extract links with proper DOM traversal (always, for both crawling and llm.txt)
 	links := ExtractAllLinksFromPage(doc, pageURL)
-	
+
 	// Submit extracted links for crawling
 	for _, link := range links {
 		if depth < f.config.MaxDepth {
 			f.submitPage(link.URL, depth+1)
 		}
 	}
-	
+
 	// Add to llm.txt entries if requested
 	if f.config.GenerateLLMTxt {
 		f.llmMutex.Lock()
@@ -248,7 +268,7 @@ func (f *OptimizedFetcher) processURL(pageURL string, depth int) {
 			if strings.HasPrefix(link.URL, "#") || !strings.Contains(link.URL, f.config.BaseURL) {
 				continue
 			}
-			
+
 			f.llmEntries = append(f.llmEntries, LLMTxtEntry{
 				Type:        ClassifyPage(link.URL, link.Text),
 				Title:       link.Text,
@@ -266,7 +286,7 @@ func (f *OptimizedFetcher) processURL(pageURL string, depth int) {
 // findLinkTextForURL finds the anchor text for a given URL in the document
 func findLinkTextForURL(doc *goquery.Document, targetURL string) string {
 	var linkText string
-	
+
 	doc.Find("a[href]").Each(func(i int, a *goquery.Selection) {
 		href, exists := a.Attr("href")
 		if exists && strings.Contains(href, targetURL) || strings.Contains(targetURL, href) {
@@ -276,7 +296,7 @@ func findLinkTextForURL(doc *goquery.Document, targetURL string) string {
 			}
 		}
 	})
-	
+
 	return linkText
 }
 
@@ -288,36 +308,36 @@ func writeResultsOptimized(outputPath string, resultsChan <-chan string) error {
 		title   string
 		content string
 	}
-	
+
 	var pages []pageResult
-	
+
 	for result := range resultsChan {
 		if strings.TrimSpace(result) == "" {
 			continue
 		}
-		
+
 		// Format: "URL\tTitle\tContent"
 		parts := strings.SplitN(result, "\t", 3)
 		if len(parts) < 3 {
 			continue
 		}
-		
+
 		pages = append(pages, pageResult{
 			url:     strings.TrimSpace(parts[0]),
 			title:   strings.TrimSpace(parts[1]),
 			content: strings.TrimSpace(parts[2]),
 		})
 	}
-	
+
 	// Build hierarchical structure from collected pages
 	// For now, use simple approach - each page is a top-level section
 	// TODO: Implement full DOM-based hierarchy across pages
-	
+
 	var output strings.Builder
 	output.WriteString("# Documentation\n\n")
 	output.WriteString("Generated by DocFetch - Intelligent documentation fetcher\n\n")
 	output.WriteString("---\n\n")
-	
+
 	// Write table of contents
 	output.WriteString("## Table of Contents\n\n")
 	for _, page := range pages {
@@ -325,7 +345,7 @@ func writeResultsOptimized(outputPath string, resultsChan <-chan string) error {
 		output.WriteString(fmt.Sprintf("- [%s](#%s)\n", page.title, slug))
 	}
 	output.WriteString("\n---\n\n")
-	
+
 	// Write each page
 	for _, page := range pages {
 		output.WriteString(fmt.Sprintf("## %s\n\n", page.title))
@@ -333,7 +353,7 @@ func writeResultsOptimized(outputPath string, resultsChan <-chan string) error {
 		output.WriteString(page.content)
 		output.WriteString("\n\n---\n\n")
 	}
-	
+
 	// Write to file
 	return os.WriteFile(outputPath, []byte(output.String()), 0644)
 }

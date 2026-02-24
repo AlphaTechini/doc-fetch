@@ -24,21 +24,39 @@ func GenerateLLMTxt(entries []LLMTxtEntry, outputPath string) error {
 
 	// Track unique URLs to avoid duplicates
 	seenURLs := make(map[string]bool)
-	
+
 	// Write each unique URL
 	for _, entry := range entries {
 		if entry.URL == "" {
 			continue
 		}
-		
+
 		// Skip if already written
 		if seenURLs[entry.URL] {
 			continue
 		}
 		seenURLs[entry.URL] = true
-		
+		// Choose the best text representation for the link
+		linkText := entry.Title
+		if linkText == "" {
+			linkText = entry.Description
+		}
+
 		// Write URL (one per line)
-		writer.WriteString(entry.URL + "\n")
+		if linkText != "" {
+			// Clean up any newlines in the text
+			cleanText := ""
+			for _, r := range linkText {
+				if r == '\n' || r == '\r' || r == '\t' {
+					cleanText += " "
+				} else {
+					cleanText += string(r)
+				}
+			}
+			writer.WriteString(fmt.Sprintf("[%s](%s)\n", cleanText, entry.URL))
+		} else {
+			writer.WriteString(entry.URL + "\n")
+		}
 	}
 
 	return nil
