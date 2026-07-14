@@ -16,7 +16,6 @@ from pathlib import Path
 # Get the directory where this script is located
 SCRIPT_DIR = Path(__file__).parent
 BIN_DIR = SCRIPT_DIR / "bin"
-BINARY_NAME = None
 
 
 def get_binary_name():
@@ -54,7 +53,7 @@ def download_binary():
     BIN_DIR.mkdir(exist_ok=True)
     
     # URL for the binary
-    url = f"https://github.com/AlphaTechini/doc-fetch/releases/download/v1.0.0/{binary_name}"
+    url = f"https://github.com/AlphaTechini/doc-fetch/releases/download/v2.5.1/{binary_name}"
     
     print(f"📥 Downloading doc-fetch binary for {platform.system()} {platform.machine()}...")
     print(f"   URL: {url}")
@@ -83,8 +82,6 @@ def download_binary():
 
 def main():
     """Main entry point for the doc-fetch CLI."""
-    global BINARY_NAME
-    
     # Get binary path
     binary_name = get_binary_name()
     binary_path = BIN_DIR / binary_name
