@@ -80,7 +80,7 @@ func renderChildren(node *html.Node) string {
 // renderList renders ul/ol as markdown list
 func renderList(node *html.Node, ordered bool) string {
 	var result strings.Builder
-	
+
 	prefix := "- "
 	if ordered {
 		prefix = "1. "
@@ -123,21 +123,21 @@ func renderLink(node *html.Node) string {
 // renderTable converts HTML table to markdown table
 func renderTable(node *html.Node) string {
 	var result strings.Builder
-	
+
 	rowNum := 0
 	for row := node.FirstChild; row != nil; row = row.NextSibling {
 		if row.Data != "tr" {
 			continue
 		}
-		
+
 		result.WriteString("| ")
 		colNum := 0
-		
+
 		for cell := row.FirstChild; cell != nil; cell = cell.NextSibling {
 			if cell.Data != "td" && cell.Data != "th" {
 				continue
 			}
-			
+
 			if colNum > 0 {
 				result.WriteString(" | ")
 			}
@@ -145,7 +145,7 @@ func renderTable(node *html.Node) string {
 			colNum++
 		}
 		result.WriteString(" |\n")
-		
+
 		// Add separator after header row
 		if rowNum == 0 {
 			result.WriteString("|")
@@ -154,10 +154,10 @@ func renderTable(node *html.Node) string {
 			}
 			result.WriteString("\n")
 		}
-		
+
 		rowNum++
 	}
-	
+
 	return result.String()
 }
 

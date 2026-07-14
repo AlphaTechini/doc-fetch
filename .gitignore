@@ -1,0 +1,9 @@
+# Build artifacts
+docfetch.exe
+doc-fetch.exe
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo

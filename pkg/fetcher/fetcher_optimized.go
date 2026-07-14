@@ -260,12 +260,21 @@ func (f *OptimizedFetcher) processURL(pageURL string, depth int) {
 		}
 	}
 
+	// Extract nav/sidebar links (sidebar navigation, anchor targets)
+	navLinks := ExtractNavLinksFromPage(doc, pageURL)
+
+	// Submit non-anchor nav links for crawling
+	for _, link := range navLinks {
+		if !strings.HasPrefix(link.URL, "#") && depth < f.config.MaxDepth {
+			f.submitPage(link.URL, depth+1)
+		}
+	}
+
 	// Add to llm.txt entries if requested
 	if f.config.GenerateLLMTxt {
 		f.llmMutex.Lock()
 		for _, link := range links {
-			// Skip anchor links and external links
-			if strings.HasPrefix(link.URL, "#") || !strings.Contains(link.URL, f.config.BaseURL) {
+			if !strings.Contains(link.URL, f.config.BaseURL) {
 				continue
 			}
 
@@ -273,7 +282,32 @@ func (f *OptimizedFetcher) processURL(pageURL string, depth int) {
 				Type:        ClassifyPage(link.URL, link.Text),
 				Title:       link.Text,
 				URL:         link.URL,
-				Description: link.Context, // Full context including surrounding text
+				Description: link.Context,
+			})
+		}
+
+		// Add nav/sidebar links with anchor-target content for better context
+		for _, link := range navLinks {
+			if !strings.Contains(link.URL, f.config.BaseURL) {
+				continue
+			}
+
+			context := link.Context
+			hashIdx := strings.Index(link.URL, "#")
+			if hashIdx >= 0 {
+				fragment := link.URL[hashIdx+1:]
+				if fragment != "" {
+					if anchorContent := extractAnchorContent(doc, fragment); anchorContent != "" {
+						context = anchorContent
+					}
+				}
+			}
+
+			f.llmEntries = append(f.llmEntries, LLMTxtEntry{
+				Type:        ClassifyPage(link.URL, link.Text),
+				Title:       link.Text,
+				URL:         link.URL,
+				Description: context,
 			})
 		}
 		f.llmMutex.Unlock()
@@ -364,4 +398,60 @@ func slugify(text string) string {
 	text = regexp.MustCompile(`[^a-z0-9]+`).ReplaceAllString(text, "-")
 	text = strings.Trim(text, "-")
 	return text
+}
+
+// extractAnchorContent finds the element targeted by a fragment ID and returns
+// the nearest heading plus the first paragraph of content as a description.
+func extractAnchorContent(doc *goquery.Document, fragment string) string {
+	target := doc.Find("#" + fragment).First()
+	if target.Length() == 0 {
+		return ""
+	}
+
+	// Find the nearest preceding heading sibling
+	var headingText string
+	prev := target.PrevAll()
+	if prev.Length() > 0 {
+		prev.Find("h1, h2, h3, h4, h5, h6").Last().Each(func(i int, s *goquery.Selection) {
+			if headingText == "" {
+				headingText = strings.TrimSpace(s.Text())
+			}
+		})
+	}
+
+	// If no preceding sibling heading, look at parent's previous siblings
+	if headingText == "" {
+		target.Parent().PrevAll().Find("h1, h2, h3, h4, h5, h6").Last().Each(func(i int, s *goquery.Selection) {
+			if headingText == "" {
+				headingText = strings.TrimSpace(s.Text())
+			}
+		})
+	}
+
+	// If still no heading, use the target's own text as heading
+	if headingText == "" {
+		headingText = strings.TrimSpace(target.Text())
+	}
+
+	// Extract first meaningful text after the heading/target
+	var firstPara string
+	target.NextUntil("h1, h2, h3, h4, h5, h6").Each(func(i int, s *goquery.Selection) {
+		if firstPara != "" {
+			return
+		}
+		if s.Is("p") || s.Is("div") {
+			text := strings.TrimSpace(s.Text())
+			if text != "" {
+				firstPara = text
+			}
+		}
+	})
+
+	if headingText != "" {
+		return headingText
+	}
+	if firstPara != "" {
+		return firstPara
+	}
+	return ""
 }
