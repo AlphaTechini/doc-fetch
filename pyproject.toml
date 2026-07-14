@@ -29,9 +29,9 @@ requires-python = ">=3.8"
 dependencies = []
 
 [project.urls]
-Homepage = "https://github.com/AlphaTechini/doc-fetch"
+Homepage = "https://doc-fetch.vercel.app/"
 Repository = "https://github.com/AlphaTechini/doc-fetch"
-Documentation = "https://github.com/AlphaTechini/doc-fetch#readme"
+Documentation = "https://doc-fetch.vercel.app/"
 
 [project.scripts]
 doc-fetch = "doc_fetch.cli:main"

@@ -124,7 +124,7 @@ setup(
     description="Dynamic documentation fetching CLI that converts entire documentation sites to single markdown files for AI/LLM consumption",
     long_description=long_description,
     long_description_content_type="text/markdown",
-    url="https://github.com/AlphaTechini/doc-fetch",
+    url="https://doc-fetch.vercel.app/",
     packages=find_packages(),
     classifiers=[
         "Development Status :: 5 - Production/Stable",
