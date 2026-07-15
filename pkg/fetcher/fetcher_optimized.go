@@ -181,10 +181,14 @@ func (f *OptimizedFetcher) submitPage(pageURL string, depth int) {
 		return
 	}
 
-	// Submit to job queue (buffered, so rarely blocks)
+	// Submit to job queue via goroutine with context guard to avoid deadlocks
 	f.activeJobs.Add(1)
 	go func() {
-		f.jobs <- pageURL
+		select {
+		case f.jobs <- pageURL:
+		case <-f.ctx.Done():
+			f.activeJobs.Done()
+		}
 	}()
 }
 
@@ -224,50 +228,49 @@ func (f *OptimizedFetcher) processURL(pageURL string, depth int) {
 		return
 	}
 
-	// Build hierarchical structure using SectionBuilder (NEW method)
-	builder := NewSectionBuilder(pageURL)
-	builder.BuildFromDocument(doc)
-
-	// Render to markdown
-	content := builder.GenerateMarkdown()
-	if strings.TrimSpace(content) == "" {
-		atomic.AddInt32(&f.errorCount, 1)
-		log.Printf("⚠️  No content found for %s", pageURL)
-		return
-	}
-
-	// Extract title from first heading or use page title
-	title := builder.GetRoot().Title
-	if title == "Documentation" || title == "" {
-		title = doc.Find("title").Text()
-		if title == "" {
-			title = pageURL
-		}
-	}
-
-	// Send structured markdown result
-	if !f.config.GenerateLLMTxt {
-		f.resultsChan <- fmt.Sprintf("%s\t%s\t%s", pageURL, title, content)
-	}
-
-	// Extract links with proper DOM traversal (always, for both crawling and llm.txt)
+	// Extract links FIRST (always, even for pages with no content)
 	links := ExtractAllLinksFromPage(doc, pageURL)
+	navLinks := ExtractNavLinksFromPage(doc, pageURL)
 
 	// Submit extracted links for crawling
 	for _, link := range links {
+		if !isCrawlableURL(link.URL) {
+			continue
+		}
 		if depth < f.config.MaxDepth {
 			f.submitPage(link.URL, depth+1)
 		}
 	}
 
-	// Extract nav/sidebar links (sidebar navigation, anchor targets)
-	navLinks := ExtractNavLinksFromPage(doc, pageURL)
-
 	// Submit non-anchor nav links for crawling
 	for _, link := range navLinks {
-		if !strings.HasPrefix(link.URL, "#") && depth < f.config.MaxDepth {
+		if !isCrawlableURL(link.URL) || strings.HasPrefix(link.URL, "#") {
+			continue
+		}
+		if depth < f.config.MaxDepth {
 			f.submitPage(link.URL, depth+1)
 		}
+	}
+
+	// Build hierarchical structure using SectionBuilder
+	builder := NewSectionBuilder(pageURL)
+	builder.BuildFromDocument(doc)
+
+	// Render to markdown
+	content := builder.GenerateMarkdown()
+
+	// Send to results if content exists and not in llm-txt mode
+	if strings.TrimSpace(content) != "" && !f.config.GenerateLLMTxt {
+		title := builder.GetRoot().Title
+		if title == "Documentation" || title == "" {
+			title = doc.Find("title").Text()
+			if title == "" {
+				title = pageURL
+			}
+		}
+		f.resultsChan <- fmt.Sprintf("%s\t%s\t%s", pageURL, title, content)
+	} else if strings.TrimSpace(content) == "" {
+		log.Printf("⚠️  No content found for %s", pageURL)
 	}
 
 	// Add to llm.txt entries if requested
@@ -398,6 +401,11 @@ func slugify(text string) string {
 	text = regexp.MustCompile(`[^a-z0-9]+`).ReplaceAllString(text, "-")
 	text = strings.Trim(text, "-")
 	return text
+}
+
+// isCrawlableURL returns true if the URL has an HTTP scheme
+func isCrawlableURL(rawURL string) bool {
+	return strings.HasPrefix(rawURL, "http://") || strings.HasPrefix(rawURL, "https://")
 }
 
 // extractAnchorContent finds the element targeted by a fragment ID and returns
