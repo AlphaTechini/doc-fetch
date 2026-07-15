@@ -49,7 +49,7 @@ class InstallCommand(install):
     def download_binary(self):
         """Download the appropriate Go binary for the current platform."""
         binary_name = get_binary_name()
-        download_url = f"https://github.com/AlphaTechini/doc-fetch/releases/download/v2.5.2/{binary_name}"
+        download_url = f"https://github.com/AlphaTechini/doc-fetch/releases/download/v2.5.3/{binary_name}"
         
         # Destination path
         install_dir = os.path.join(self.install_scripts, 'doc-fetch-bin')
@@ -118,7 +118,7 @@ with open("README.md", "r", encoding="utf-8") as fh:
 
 setup(
     name="doc-fetch",
-    version="2.5.2",
+    version="2.5.3",
     author="AlphaTechini",
     author_email="rehobothokoibu@gmail.com",
     description="Dynamic documentation fetching CLI that converts entire documentation sites to single markdown files for AI/LLM consumption",
