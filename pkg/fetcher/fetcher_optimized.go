@@ -28,10 +28,11 @@ type jobItem struct {
 type OptimizedFetcher struct {
 	config      Config
 	httpClient  *http.Client
-	jobs        chan jobItem    // Buffered job queue (worker pool pattern)
-	visited     sync.Map        // Concurrent-safe URL deduplication
-	activeJobs  sync.WaitGroup  // Track active jobs to shut down gracefully
-	resultsChan chan string     // Results writer channel
+	jobs        chan jobItem     // Buffered job queue (worker pool pattern)
+	visited     sync.Map         // Concurrent-safe URL deduplication
+	activeJobs  sync.WaitGroup   // Track active jobs to shut down gracefully
+	llmPending  sync.WaitGroup   // Track pending llmWriter sends
+	resultsChan chan string      // Results writer channel
 	llmWriter   chan LLMTxtEntry // Incremental llm.txt writer channel
 	baseHost    string           // Hostname of the base URL for domain filtering
 	pageCount   int32
@@ -129,6 +130,7 @@ func RunOptimized(config Config) error {
 
 	// Close llm writer channel and wait for it to finish
 	if config.GenerateLLMTxt {
+		fetcher.llmPending.Wait()
 		close(llmWriter)
 		llmWg.Wait()
 	}
@@ -307,12 +309,19 @@ func (f *OptimizedFetcher) processURL(pageURL string, depth int) {
 	// Add to llm.txt entries if requested
 	if f.config.GenerateLLMTxt {
 		for _, link := range links {
-			f.llmWriter <- LLMTxtEntry{
+			f.llmPending.Add(1)
+			go func(e LLMTxtEntry) {
+				defer f.llmPending.Done()
+				select {
+				case f.llmWriter <- e:
+				case <-f.ctx.Done():
+				}
+			}(LLMTxtEntry{
 				Type:        ClassifyPage(link.URL, link.Text),
 				Title:       link.Text,
 				URL:         link.URL,
 				Description: link.Context,
-			}
+			})
 		}
 
 		// Add nav/sidebar links with anchor-target content for better context
@@ -328,12 +337,19 @@ func (f *OptimizedFetcher) processURL(pageURL string, depth int) {
 				}
 			}
 
-			f.llmWriter <- LLMTxtEntry{
+			f.llmPending.Add(1)
+			go func(e LLMTxtEntry) {
+				defer f.llmPending.Done()
+				select {
+				case f.llmWriter <- e:
+				case <-f.ctx.Done():
+				}
+			}(LLMTxtEntry{
 				Type:        ClassifyPage(link.URL, link.Text),
 				Title:       link.Text,
 				URL:         link.URL,
 				Description: context,
-			}
+			})
 		}
 	}
 
