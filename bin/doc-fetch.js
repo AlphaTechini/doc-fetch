@@ -9,30 +9,29 @@ const path = require('path');
 const fs = require('fs');
 
 const packageDir = path.join(__dirname, '..');
-
-// Binary name is set by postinstall script
-// Default fallbacks if postinstall didn't run
-let binaryName = 'doc-fetch';
 const platform = process.platform;
 
-if (platform === 'win32') {
-  binaryName = 'doc-fetch.exe';
-} else if (platform === 'darwin') {
-  binaryName = 'doc-fetch';
-} else {
-  binaryName = 'doc-fetch';
+// Platform-aware binary search - only try binaries that match current platform
+function getPlatformSuffix() {
+  if (platform === 'win32') return '_windows_amd64.exe';
+  if (platform === 'darwin') {
+    return process.arch === 'arm64' ? '_darwin_arm64' : '_darwin_amd64';
+  }
+  return '_linux_amd64';
 }
 
-// Try to find the actual binary
-const possibleBinaries = [
-  binaryName,
-  'doc-fetch.exe',
-  'doc-fetch_windows_amd64.exe',
-  'doc-fetch_darwin_amd64',
-  'doc-fetch_darwin_arm64',
-  'doc-fetch_linux_amd64',
-  'doc-fetch_linux_arm64',
-];
+const platformSuffix = getPlatformSuffix();
+const specificName = 'doc-fetch' + platformSuffix;
+
+// Search for binaries in platform-specific order
+const possibleBinaries = [];
+if (platform === 'win32') {
+  possibleBinaries.push(specificName, 'doc-fetch_windows_amd64.exe', 'doc-fetch.exe');
+} else if (platform === 'darwin') {
+  possibleBinaries.push(specificName, 'doc-fetch_darwin_amd64', 'doc-fetch_darwin_arm64', 'doc-fetch');
+} else {
+  possibleBinaries.push(specificName, 'doc-fetch_linux_amd64', 'doc-fetch');
+}
 
 let binaryPath = null;
 for (const name of possibleBinaries) {

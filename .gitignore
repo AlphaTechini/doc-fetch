@@ -19,3 +19,5 @@ pnpm-workspace.yaml
 *.swo
 
 adocs.md
+
+cdocs.md
