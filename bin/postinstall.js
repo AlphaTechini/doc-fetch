@@ -1,105 +1,139 @@
 #!/usr/bin/env node
 /**
  * Post-install script for doc-fetch-cli
- * Detects and uses the correct platform binary (no copying needed)
+ * Downloads the latest Go binary from GitHub Releases, with bundled fallback
  */
 
 const path = require('path');
 const os = require('os');
 const fs = require('fs');
+const https = require('https');
 
-console.log('🎉 DocFetch CLI installing...\n');
+console.log('📦 DocFetch CLI setting up...\n');
 
 const packageDir = path.join(__dirname, '..');
 const platform = os.platform();
 const arch = os.arch();
 
-// Define binary names to search for (in priority order)
-let searchNames = [];
-if (platform === 'win32') {
-  searchNames = ['doc-fetch_windows_amd64.exe', 'doc-fetch.exe'];
-} else if (platform === 'darwin') {
-  searchNames = arch === 'arm64' 
-    ? ['doc-fetch_darwin_arm64', 'doc-fetch_darwin_amd64', 'doc-fetch']
-    : ['doc-fetch_darwin_amd64', 'doc-fetch_darwin_arm64', 'doc-fetch'];
-} else {
-  // Linux
-  searchNames = arch === 'arm64'
-    ? ['doc-fetch_linux_arm64', 'doc-fetch_linux_amd64', 'doc-fetch']
-    : ['doc-fetch_linux_amd64', 'doc-fetch_linux_arm64', 'doc-fetch'];
+// Read package.json for version
+let version = '2.5.6';
+try {
+  const pkg = JSON.parse(fs.readFileSync(path.join(packageDir, 'package.json'), 'utf8'));
+  version = pkg.version;
+} catch (e) {
+  // use default
 }
 
-console.log(`📦 Platform: ${platform} ${arch}`);
-console.log(`🔍 Searching for binary...\n`);
+// Map platform/arch to binary name
+function getBinaryName() {
+  const goos = platform === 'win32' ? 'windows' : (platform === 'darwin' ? 'darwin' : 'linux');
+  const goarch = arch === 'arm64' ? 'arm64' : 'amd64';
+  const name = `doc-fetch_${goos}_${goarch}`;
+  return { name, fullName: goos === 'windows' ? name + '.exe' : name };
+}
 
-// List all doc-fetch binaries in package
-console.log('📋 Available binaries:');
-let foundBinary = null;
-try {
-  const files = fs.readdirSync(packageDir);
-  const binaries = files.filter(f => f.includes('doc-fetch') && !f.endsWith('.js'));
-  
-  if (binaries.length === 0) {
-    console.log('   ❌ No binaries found! Package is corrupted.\n');
+const { name, fullName } = getBinaryName();
+const downloadUrl = `https://github.com/AlphaTechini/doc-fetch/releases/download/v${version}/${fullName}`;
+const destPath = path.join(packageDir, fullName);
+
+console.log(`📥 Platform: ${platform} ${arch}`);
+console.log(`📥 Downloading binary for v${version}...`);
+console.log(`   ${downloadUrl}\n`);
+
+function downloadBinary(url, dest) {
+  return new Promise((resolve, reject) => {
+    const file = fs.createWriteStream(dest, { mode: 0o755 });
+    https.get(url, { timeout: 30000 }, (res) => {
+      if (res.statusCode === 302 || res.statusCode === 301) {
+        file.close();
+        fs.unlinkSync(dest);
+        downloadBinary(res.headers.location, dest).then(resolve).catch(reject);
+        return;
+      }
+      if (res.statusCode !== 200) {
+        file.close();
+        fs.unlinkSync(dest);
+        reject(new Error(`HTTP ${res.statusCode}`));
+        return;
+      }
+      res.pipe(file);
+      file.on('finish', () => {
+        file.close();
+        resolve();
+      });
+    }).on('error', (err) => {
+      file.close();
+      try { fs.unlinkSync(dest); } catch (e) {}
+      reject(err);
+    }).on('timeout', () => {
+      file.close();
+      try { fs.unlinkSync(dest); } catch (e) {}
+      reject(new Error('Download timeout'));
+    });
+  });
+}
+
+async function setup() {
+  // Try downloading the latest binary from GitHub Releases
+  try {
+    await downloadBinary(downloadUrl, destPath);
+    console.log('✅ Binary downloaded from GitHub Releases\n');
+    updateWrapper(fullName);
+    return;
+  } catch (e) {
+    console.log(`⚠️  Download failed (${e.message}), falling back to bundled binary...\n`);
+  }
+
+  // Fallback: find bundled binary
+  const searchOrder = [];
+  if (platform === 'win32') {
+    searchOrder = [fullName, 'doc-fetch.exe'];
+  } else if (platform === 'darwin') {
+    searchOrder = arch === 'arm64'
+      ? ['doc-fetch_darwin_arm64', 'doc-fetch_darwin_amd64', 'doc-fetch']
+      : ['doc-fetch_darwin_amd64', 'doc-fetch_darwin_arm64', 'doc-fetch'];
+  } else {
+    searchOrder = arch === 'arm64'
+      ? ['doc-fetch_linux_arm64', 'doc-fetch_linux_amd64', 'doc-fetch']
+      : ['doc-fetch_linux_amd64', 'doc-fetch_linux_arm64', 'doc-fetch'];
+  }
+
+  let foundBinary = null;
+  for (const name of searchOrder) {
+    const testPath = path.join(packageDir, name);
+    if (fs.existsSync(testPath)) {
+      foundBinary = name;
+      break;
+    }
+  }
+
+  if (!foundBinary) {
+    console.error('❌ No binary found. Please install from source or download manually.');
+    console.error('   https://github.com/AlphaTechini/doc-fetch/releases\n');
     process.exit(1);
   }
-  
-  binaries.forEach(file => {
-    const stats = fs.statSync(path.join(packageDir, file));
-    const size = (stats.size / 1024 / 1024).toFixed(2);
-    
-    // Check if this is a valid binary for current platform
-    const isValid = searchNames.includes(file);
-    const marker = isValid ? '✅' : 'ℹ️ ';
-    console.log(`   ${marker} ${file} (${size} MB)`);
-    
-    // Use first valid match
-    if (isValid && !foundBinary) {
-      foundBinary = file;
+
+  console.log(`✅ Using bundled binary: ${foundBinary}\n`);
+  updateWrapper(foundBinary);
+}
+
+function updateWrapper(binaryName) {
+  const wrapperPath = path.join(packageDir, 'bin', 'doc-fetch.js');
+  if (fs.existsSync(wrapperPath)) {
+    try {
+      let wrapper = fs.readFileSync(wrapperPath, 'utf8');
+      wrapper = wrapper.replace(
+        /const binaryName = ['"][^'"]+['"];/,
+        "const binaryName = '" + binaryName + "';"
+      );
+      fs.writeFileSync(wrapperPath, wrapper);
+    } catch (e) {
+      console.log(`⚠️  Could not update wrapper: ${e.message}\n`);
     }
-  });
-} catch (e) {
-  console.log(`   ❌ Error listing directory: ${e.message}\n`);
-  process.exit(1);
-}
-
-console.log('');
-
-if (!foundBinary) {
-  console.error('❌ CRITICAL: No compatible binary found for your platform!');
-  console.error(`   Searched for: ${searchNames.join(', ')}`);
-  console.error('');
-  console.error('💡 This is a packaging error. Please:');
-  console.error('   1. Report issue: https://github.com/AlphaTechini/doc-fetch/issues');
-  console.error('   2. Include your platform: ' + platform + ' ' + arch);
-  console.error('   3. Or install from source (see README)\n');
-  process.exit(1);
-}
-
-// Update wrapper script to use found binary
-const wrapperPath = path.join(packageDir, 'bin', 'doc-fetch.js');
-if (fs.existsSync(wrapperPath)) {
-  try {
-    let wrapper = fs.readFileSync(wrapperPath, 'utf8');
-    
-    // Update the binary name in wrapper
-    wrapper = wrapper.replace(
-      /const binaryName = ['"][^'"]+['"];/,
-      `const binaryName = '${foundBinary}';`
-    );
-    
-    fs.writeFileSync(wrapperPath, wrapper);
-    console.log(`✅ Configured wrapper to use: ${foundBinary}`);
-  } catch (e) {
-    console.log(`⚠️  Could not update wrapper: ${e.message}`);
-    console.log(`   You may need to run: doc-fetch (instead of doc-fetch-cli)`);
   }
 }
 
-console.log('');
-console.log('✨ Installation complete!');
-console.log('');
-console.log('Usage:');
-console.log('   doc-fetch --url https://docs.example.com --output docs.md');
-console.log('');
-console.log('Pro tip: Use --llm-txt flag to generate AI-friendly index files!\n');
+setup().catch((err) => {
+  console.error(`❌ Setup failed: ${err.message}\n`);
+  process.exit(1);
+});

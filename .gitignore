@@ -17,3 +17,5 @@ pnpm-workspace.yaml
 .vscode/
 *.swp
 *.swo
+
+adocs.md

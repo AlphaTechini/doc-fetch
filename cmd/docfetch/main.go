@@ -2,12 +2,17 @@ package main
 
 import (
 	"flag"
+	"fmt"
 	"log"
+	"os"
 
 	"github.com/AlphaTechini/doc-fetch/pkg/fetcher"
 )
 
+var version = "dev"
+
 func main() {
+	versionFlag := flag.Bool("version", false, "Show version")
 	url := flag.String("url", "", "Base URL to fetch documentation from")
 	output := flag.String("output", "docs.md", "Output file path")
 	depth := flag.Int("depth", 2, "Maximum crawl depth")
@@ -16,6 +21,11 @@ func main() {
 	llmTxt := flag.Bool("llm-txt", false, "Generate llm.txt index file")
 
 	flag.Parse()
+
+	if *versionFlag {
+		fmt.Printf("doc-fetch version %s\n", version)
+		os.Exit(0)
+	}
 
 	if *url == "" {
 		log.Fatal("Error: URL is required\nUsage: doc-fetch --url <base-url> --output <file-path>")

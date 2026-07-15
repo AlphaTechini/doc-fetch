@@ -61,8 +61,8 @@ func RunOptimized(config Config) error {
 	rateLimiter := rate.NewLimiter(rate.Limit(config.Workers), config.Workers*2)
 
 	// Buffered channels for worker pool pattern
-	jobs := make(chan jobItem, config.Workers*50)        // Job queue
-	resultsChan := make(chan string, config.Workers*100) // Results buffer
+	jobs := make(chan jobItem, config.Workers*50)           // Job queue
+	resultsChan := make(chan string, config.Workers*100)    // Results buffer
 	llmWriter := make(chan LLMTxtEntry, config.Workers*100) // llm.txt writer
 
 	fetcher := &OptimizedFetcher{
