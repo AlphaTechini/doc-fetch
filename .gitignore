@@ -4,11 +4,16 @@ doc-fetch.exe
 build/
 dist/
 *.egg-info/
+bdocs.md
+docs.md
+
+# Dependencies
+node_modules/
+pnpm-lock.yaml
+pnpm-workspace.yaml
 
 # IDE
 .idea/
 .vscode/
 *.swp
 *.swo
-
-docs.md

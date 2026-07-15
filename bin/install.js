@@ -85,7 +85,7 @@ async function getBinaryUrl() {
     }
     
     return {
-        url: `https://github.com/AlphaTechini/doc-fetch/releases/download/v2.5.3/doc-fetch_${goos}_${goarch}`,
+        url: `https://github.com/AlphaTechini/doc-fetch/releases/download/v2.5.4/doc-fetch_${goos}_${goarch}`,
         filename: platform === 'win32' ? 'doc-fetch.exe' : 'doc-fetch'
     };
 }

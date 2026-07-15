@@ -6,6 +6,7 @@ import (
 	"log"
 	"net"
 	"net/http"
+	"net/url"
 	"os"
 	"regexp"
 	"strings"
@@ -17,16 +18,22 @@ import (
 	"golang.org/x/time/rate"
 )
 
+// jobItem carries a URL and its crawl depth through the job queue
+type jobItem struct {
+	url   string
+	depth int
+}
+
 // OptimizedFetcher uses worker pool pattern for controlled concurrency
 type OptimizedFetcher struct {
 	config      Config
 	httpClient  *http.Client
-	jobs        chan string    // Buffered job queue (worker pool pattern)
-	visited     sync.Map       // Concurrent-safe URL deduplication
-	activeJobs  sync.WaitGroup // Track active jobs to shut down gracefully
-	resultsChan chan string    // Results writer channel
-	llmEntries  []LLMTxtEntry
-	llmMutex    sync.Mutex
+	jobs        chan jobItem    // Buffered job queue (worker pool pattern)
+	visited     sync.Map        // Concurrent-safe URL deduplication
+	activeJobs  sync.WaitGroup  // Track active jobs to shut down gracefully
+	resultsChan chan string     // Results writer channel
+	llmWriter   chan LLMTxtEntry // Incremental llm.txt writer channel
+	baseHost    string           // Hostname of the base URL for domain filtering
 	pageCount   int32
 	errorCount  int32
 	ctx         context.Context
@@ -43,18 +50,26 @@ func RunOptimized(config Config) error {
 	log.Printf("🚀 Starting HIGH-PERFORMANCE documentation fetch from: %s", config.BaseURL)
 	log.Printf("   Workers: %d | Max Depth: %d | Rate Limit: %d req/sec", config.Workers, config.MaxDepth, config.Workers*2)
 
+	// Parse base host for domain filtering
+	baseHost := ""
+	if parsed, err := url.Parse(config.BaseURL); err == nil {
+		baseHost = parsed.Host
+	}
+
 	// Create rate limiter (prevent DDoS, be civilized)
-	// Allow burst of workers*2, then sustain at workers per second
 	rateLimiter := rate.NewLimiter(rate.Limit(config.Workers), config.Workers*2)
 
 	// Buffered channels for worker pool pattern
-	jobs := make(chan string, config.Workers*10)         // Job queue
+	jobs := make(chan jobItem, config.Workers*50)        // Job queue
 	resultsChan := make(chan string, config.Workers*100) // Results buffer
+	llmWriter := make(chan LLMTxtEntry, config.Workers*100) // llm.txt writer
 
 	fetcher := &OptimizedFetcher{
 		config:      config,
 		jobs:        jobs,
 		resultsChan: resultsChan,
+		llmWriter:   llmWriter,
+		baseHost:    baseHost,
 		httpClient:  createOptimizedHTTPClient(config.Workers),
 		rateLimiter: rateLimiter,
 		ctx:         context.Background(),
@@ -74,6 +89,16 @@ func RunOptimized(config Config) error {
 			if err := writeResultsOptimized(config.OutputPath, resultsChan); err != nil {
 				log.Printf("❌ Error writing results: %v", err)
 			}
+		}()
+	}
+
+	// Start incremental llm.txt writer (writes entries as they arrive)
+	var llmWg sync.WaitGroup
+	if config.GenerateLLMTxt {
+		llmWg.Add(1)
+		go func() {
+			defer llmWg.Done()
+			writeLLMTxtStreaming(config.OutputPath, llmWriter)
 		}()
 	}
 
@@ -102,6 +127,12 @@ func RunOptimized(config Config) error {
 	// Wait for results writer to finish
 	writeWg.Wait()
 
+	// Close llm writer channel and wait for it to finish
+	if config.GenerateLLMTxt {
+		close(llmWriter)
+		llmWg.Wait()
+	}
+
 	elapsed := time.Since(startTime)
 	pagesFetched := atomic.LoadInt32(&fetcher.pageCount)
 	errors := atomic.LoadInt32(&fetcher.errorCount)
@@ -111,19 +142,6 @@ func RunOptimized(config Config) error {
 	log.Printf("   ⏱️  Time elapsed: %v (%.2f pages/sec)", elapsed, float64(pagesFetched)/elapsed.Seconds())
 	log.Printf("   ❌ Errors: %d", errors)
 	log.Printf("💡 Tip: Use --concurrent <N> to adjust parallelism (current: %d)", config.Workers)
-
-	// Generate LLM.txt if requested
-	if config.GenerateLLMTxt {
-		if len(fetcher.llmEntries) > 0 {
-			if err := GenerateLLMTxt(fetcher.llmEntries, config.OutputPath); err != nil {
-				log.Printf("⚠️  Warning: Failed to generate llm.txt: %v", err)
-			} else {
-				log.Printf("📝 LLM.txt generated: %s (%d entries)", config.OutputPath, len(fetcher.llmEntries))
-			}
-		} else {
-			log.Printf("📝 LLM.txt generated: %s (0 entries)", config.OutputPath)
-		}
-	}
 
 	return nil
 }
@@ -151,7 +169,7 @@ func createOptimizedHTTPClient(workers int) *http.Client {
 func (f *OptimizedFetcher) worker(id int, wg *sync.WaitGroup, limiter *rate.Limiter) {
 	defer wg.Done()
 
-	for pageURL := range f.jobs {
+	for job := range f.jobs {
 		select {
 		case <-f.ctx.Done():
 			f.activeJobs.Done()
@@ -164,7 +182,7 @@ func (f *OptimizedFetcher) worker(id int, wg *sync.WaitGroup, limiter *rate.Limi
 				continue
 			}
 
-			f.processURL(pageURL, 0)
+			f.processURL(job.url, job.depth)
 			f.activeJobs.Done()
 		}
 	}
@@ -173,6 +191,19 @@ func (f *OptimizedFetcher) worker(id int, wg *sync.WaitGroup, limiter *rate.Limi
 // submitPage adds a URL to job queue (with depth tracking and deduplication)
 func (f *OptimizedFetcher) submitPage(pageURL string, depth int) {
 	if depth > f.config.MaxDepth {
+		return
+	}
+
+	// Strip URL fragment - HTTP GET ignores it, so page#x and page#y are identical
+	if idx := strings.Index(pageURL, "#"); idx >= 0 {
+		pageURL = pageURL[:idx]
+	}
+	if pageURL == "" {
+		return
+	}
+
+	// Only crawl pages within the base domain (skip external links)
+	if f.baseHost != "" && !isSameDomain(pageURL, f.baseHost) {
 		return
 	}
 
@@ -185,7 +216,7 @@ func (f *OptimizedFetcher) submitPage(pageURL string, depth int) {
 	f.activeJobs.Add(1)
 	go func() {
 		select {
-		case f.jobs <- pageURL:
+		case f.jobs <- jobItem{url: pageURL, depth: depth}:
 		case <-f.ctx.Done():
 			f.activeJobs.Done()
 		}
@@ -275,26 +306,17 @@ func (f *OptimizedFetcher) processURL(pageURL string, depth int) {
 
 	// Add to llm.txt entries if requested
 	if f.config.GenerateLLMTxt {
-		f.llmMutex.Lock()
 		for _, link := range links {
-			if !strings.Contains(link.URL, f.config.BaseURL) {
-				continue
-			}
-
-			f.llmEntries = append(f.llmEntries, LLMTxtEntry{
+			f.llmWriter <- LLMTxtEntry{
 				Type:        ClassifyPage(link.URL, link.Text),
 				Title:       link.Text,
 				URL:         link.URL,
 				Description: link.Context,
-			})
+			}
 		}
 
 		// Add nav/sidebar links with anchor-target content for better context
 		for _, link := range navLinks {
-			if !strings.Contains(link.URL, f.config.BaseURL) {
-				continue
-			}
-
 			context := link.Context
 			hashIdx := strings.Index(link.URL, "#")
 			if hashIdx >= 0 {
@@ -306,14 +328,13 @@ func (f *OptimizedFetcher) processURL(pageURL string, depth int) {
 				}
 			}
 
-			f.llmEntries = append(f.llmEntries, LLMTxtEntry{
+			f.llmWriter <- LLMTxtEntry{
 				Type:        ClassifyPage(link.URL, link.Text),
 				Title:       link.Text,
 				URL:         link.URL,
 				Description: context,
-			})
+			}
 		}
-		f.llmMutex.Unlock()
 	}
 
 	elapsed := time.Since(startTime)
@@ -406,6 +427,63 @@ func slugify(text string) string {
 // isCrawlableURL returns true if the URL has an HTTP scheme
 func isCrawlableURL(rawURL string) bool {
 	return strings.HasPrefix(rawURL, "http://") || strings.HasPrefix(rawURL, "https://")
+}
+
+// isSameDomain returns true if the URL's host matches the base host
+func isSameDomain(rawURL string, baseHost string) bool {
+	parsed, err := url.Parse(rawURL)
+	if err != nil {
+		return false
+	}
+	return parsed.Host != "" && parsed.Host == baseHost
+}
+
+// writeLLMTxtStreaming reads llm.txt entries from a channel and writes them to disk incrementally
+func writeLLMTxtStreaming(outputPath string, entriesChan <-chan LLMTxtEntry) {
+	file, err := os.Create(outputPath)
+	if err != nil {
+		log.Printf("❌ Failed to create llm.txt file: %v", err)
+		return
+	}
+	defer file.Close()
+
+	file.WriteString("# llm.txt - Documentation URL Index\n")
+	file.WriteString("# Generated by DocFetch - List of discovered documentation URLs\n\n")
+
+	seenURLs := make(map[string]bool)
+
+	for entry := range entriesChan {
+		if entry.URL == "" {
+			continue
+		}
+		if seenURLs[entry.URL] {
+			continue
+		}
+		seenURLs[entry.URL] = true
+
+		linkText := entry.Title
+		if linkText == "" {
+			linkText = entry.Description
+		}
+
+		cleanText := cleanEntryText(linkText)
+		cleanDesc := cleanEntryText(entry.Description)
+		if cleanDesc == cleanText {
+			cleanDesc = ""
+		}
+
+		if cleanText != "" {
+			if cleanDesc != "" {
+				fmt.Fprintf(file, "[%s](%s): %s\n", cleanText, entry.URL, cleanDesc)
+			} else {
+				fmt.Fprintf(file, "[%s](%s)\n", cleanText, entry.URL)
+			}
+		} else {
+			fmt.Fprintf(file, "%s\n", entry.URL)
+		}
+	}
+
+	log.Printf("📝 LLM.txt written: %s (%d entries)", outputPath, len(seenURLs))
 }
 
 // extractAnchorContent finds the element targeted by a fragment ID and returns
