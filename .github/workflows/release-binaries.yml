@@ -1,0 +1,41 @@
+name: Publish release binaries
+
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+          cache-dependency-path: go.sum
+      - name: Build release binaries
+        env:
+          CGO_ENABLED: '0'
+        run: |
+          mkdir dist
+          GOOS=linux GOARCH=amd64 go build -trimpath -ldflags='-s -w' -o dist/doc-fetch_linux_amd64 ./cmd/docfetch
+          GOOS=linux GOARCH=arm64 go build -trimpath -ldflags='-s -w' -o dist/doc-fetch_linux_arm64 ./cmd/docfetch
+          GOOS=darwin GOARCH=amd64 go build -trimpath -ldflags='-s -w' -o dist/doc-fetch_darwin_amd64 ./cmd/docfetch
+          GOOS=darwin GOARCH=arm64 go build -trimpath -ldflags='-s -w' -o dist/doc-fetch_darwin_arm64 ./cmd/docfetch
+          GOOS=windows GOARCH=amd64 go build -trimpath -ldflags='-s -w' -o dist/doc-fetch_windows_amd64.exe ./cmd/docfetch
+          GOOS=windows GOARCH=arm64 go build -trimpath -ldflags='-s -w' -o dist/doc-fetch_windows_arm64.exe ./cmd/docfetch
+      - name: Verify release assets
+        run: |
+          test -s dist/doc-fetch_linux_amd64
+          test -s dist/doc-fetch_linux_arm64
+          test -s dist/doc-fetch_darwin_amd64
+          test -s dist/doc-fetch_darwin_arm64
+          test -s dist/doc-fetch_windows_amd64.exe
+          test -s dist/doc-fetch_windows_arm64.exe
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "$GITHUB_REF_NAME" dist/* --verify-tag --generate-notes

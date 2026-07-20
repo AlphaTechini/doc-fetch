@@ -14,10 +14,11 @@ console.log('🔍 Verifying platform binaries before publish...\n');
 
 const requiredBinaries = [
   { name: 'doc-fetch_linux_amd64', platform: 'linux', arch: 'x64' },
-  { name: 'doc-fetch_linux_arm64', platform: 'linux', arch: 'arm64', optional: true },
+  { name: 'doc-fetch_linux_arm64', platform: 'linux', arch: 'arm64' },
   { name: 'doc-fetch_darwin_amd64', platform: 'darwin', arch: 'x64' },
-  { name: 'doc-fetch_darwin_arm64', platform: 'darwin', arch: 'arm64', optional: true },
+  { name: 'doc-fetch_darwin_arm64', platform: 'darwin', arch: 'arm64' },
   { name: 'doc-fetch_windows_amd64.exe', platform: 'win32', arch: 'x64' },
+  { name: 'doc-fetch_windows_arm64.exe', platform: 'win32', arch: 'arm64' },
 ];
 
 let allPresent = true;
@@ -36,13 +37,9 @@ requiredBinaries.forEach(binary => {
     console.log(`   ✅ ${binary.name.padEnd(35)} (${size} MB) - ${binary.platform} ${binary.arch}`);
     present.push(binary.name);
   } else {
-    const marker = binary.optional ? '⚠️ ' : '❌';
-    const note = binary.optional ? '(optional)' : '(REQUIRED)';
-    console.log(`   ${marker} ${binary.name.padEnd(35)} MISSING ${note}`);
-    if (!binary.optional) {
-      missing.push(binary.name);
-      allPresent = false;
-    }
+    console.log(`   ❌ ${binary.name.padEnd(35)} MISSING (REQUIRED)`);
+    missing.push(binary.name);
+    allPresent = false;
   }
 });
 
@@ -59,17 +56,20 @@ if (!allPresent) {
   console.error('   # Linux x64');
   console.error('   GOOS=linux GOARCH=amd64 go build -o doc-fetch_linux_amd64 ./cmd/docfetch');
   console.error('');
-  console.error('   # Linux ARM64 (optional)');
+  console.error('   # Linux ARM64');
   console.error('   GOOS=linux GOARCH=arm64 go build -o doc-fetch_linux_arm64 ./cmd/docfetch');
   console.error('');
   console.error('   # macOS Intel');
   console.error('   GOOS=darwin GOARCH=amd64 go build -o doc-fetch_darwin_amd64 ./cmd/docfetch');
   console.error('');
-  console.error('   # macOS Apple Silicon (optional)');
+  console.error('   # macOS Apple Silicon');
   console.error('   GOOS=darwin GOARCH=arm64 go build -o doc-fetch_darwin_arm64 ./cmd/docfetch');
   console.error('');
   console.error('   # Windows x64');
   console.error('   GOOS=windows GOARCH=amd64 go build -o doc-fetch_windows_amd64.exe ./cmd/docfetch');
+  console.error('');
+  console.error('   # Windows ARM64');
+  console.error('   GOOS=windows GOARCH=arm64 go build -o doc-fetch_windows_arm64.exe ./cmd/docfetch');
   console.error('');
   console.error('Then run this script again to verify.');
   console.error('');

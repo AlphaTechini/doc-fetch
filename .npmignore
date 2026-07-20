@@ -32,6 +32,8 @@ go.sum
 !doc-fetch
 !doc-fetch.exe
 !doc-fetch_linux_amd64
+!doc-fetch_linux_arm64
 !doc-fetch_darwin_amd64
 !doc-fetch_darwin_arm64
 !doc-fetch_windows_amd64.exe
+!doc-fetch_windows_arm64.exe

@@ -13,11 +13,13 @@ const platform = process.platform;
 
 // Platform-aware binary search - only try binaries that match current platform
 function getPlatformSuffix() {
-  if (platform === 'win32') return '_windows_amd64.exe';
+  if (platform === 'win32') {
+    return process.arch === 'arm64' ? '_windows_arm64.exe' : '_windows_amd64.exe';
+  }
   if (platform === 'darwin') {
     return process.arch === 'arm64' ? '_darwin_arm64' : '_darwin_amd64';
   }
-  return '_linux_amd64';
+  return process.arch === 'arm64' ? '_linux_arm64' : '_linux_amd64';
 }
 
 const platformSuffix = getPlatformSuffix();
@@ -25,13 +27,7 @@ const specificName = 'doc-fetch' + platformSuffix;
 
 // Search for binaries in platform-specific order
 const possibleBinaries = [];
-if (platform === 'win32') {
-  possibleBinaries.push(specificName, 'doc-fetch_windows_amd64.exe', 'doc-fetch.exe');
-} else if (platform === 'darwin') {
-  possibleBinaries.push(specificName, 'doc-fetch_darwin_amd64', 'doc-fetch_darwin_arm64', 'doc-fetch');
-} else {
-  possibleBinaries.push(specificName, 'doc-fetch_linux_amd64', 'doc-fetch');
-}
+possibleBinaries.push(specificName, platform === 'win32' ? 'doc-fetch.exe' : 'doc-fetch');
 
 let binaryPath = null;
 for (const name of possibleBinaries) {

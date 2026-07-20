@@ -16,7 +16,7 @@ const platform = os.platform();
 const arch = os.arch();
 
 // Read package.json for version
-let version = '2.5.7';
+let version = '2.5.8';
 try {
   const pkg = JSON.parse(fs.readFileSync(path.join(packageDir, 'package.json'), 'utf8'));
   version = pkg.version;
@@ -42,32 +42,34 @@ console.log(`   ${downloadUrl}\n`);
 
 function downloadBinary(url, dest) {
   return new Promise((resolve, reject) => {
-    const file = fs.createWriteStream(dest, { mode: 0o755 });
+    const tempDest = dest + '.download';
+    const file = fs.createWriteStream(tempDest, { mode: 0o755 });
     https.get(url, { timeout: 30000 }, (res) => {
       if (res.statusCode === 302 || res.statusCode === 301) {
         file.close();
-        fs.unlinkSync(dest);
+        fs.unlinkSync(tempDest);
         downloadBinary(res.headers.location, dest).then(resolve).catch(reject);
         return;
       }
       if (res.statusCode !== 200) {
         file.close();
-        fs.unlinkSync(dest);
+        fs.unlinkSync(tempDest);
         reject(new Error(`HTTP ${res.statusCode}`));
         return;
       }
       res.pipe(file);
       file.on('finish', () => {
         file.close();
+        fs.renameSync(tempDest, dest);
         resolve();
       });
     }).on('error', (err) => {
       file.close();
-      try { fs.unlinkSync(dest); } catch (e) {}
+      try { fs.unlinkSync(tempDest); } catch (e) {}
       reject(err);
     }).on('timeout', () => {
       file.close();
-      try { fs.unlinkSync(dest); } catch (e) {}
+      try { fs.unlinkSync(tempDest); } catch (e) {}
       reject(new Error('Download timeout'));
     });
   });
@@ -85,7 +87,7 @@ async function setup() {
   }
 
   // Fallback: find bundled binary
-  const searchOrder = [];
+  let searchOrder = [];
   if (platform === 'win32') {
     searchOrder = [fullName, 'doc-fetch.exe'];
   } else if (platform === 'darwin') {
