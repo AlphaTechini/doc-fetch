@@ -16,7 +16,7 @@ const platform = os.platform();
 const arch = os.arch();
 
 // Read package.json for version
-let version = '2.5.10';
+let version = '2.5.11';
 try {
   const pkg = JSON.parse(fs.readFileSync(path.join(packageDir, 'package.json'), 'utf8'));
   version = pkg.version;

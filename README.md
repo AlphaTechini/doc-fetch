@@ -52,7 +52,7 @@ pnpm add --global doc-fetch-cli
 
 ### Go (For Go developers)
 ```bash
-go install github.com/AlphaTechini/doc-fetch/cmd/docfetch@latest
+go install github.com/AlphaTechini/doc-fetch/v2/cmd/docfetch@latest
 ```
 
 ### Direct Binary Download

@@ -23,7 +23,7 @@ cd doc-fetch
 go build -o doc-fetch ./cmd/docfetch
 
 # Or install directly
-go install github.com/AlphaTechini/doc-fetch/cmd/docfetch@latest
+go install github.com/AlphaTechini/doc-fetch/v2/cmd/docfetch@latest
 ```
 
 Use one global JavaScript package manager for DocFetch. If an older global installation may still be present, run:

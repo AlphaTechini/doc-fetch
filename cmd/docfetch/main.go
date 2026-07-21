@@ -6,7 +6,7 @@ import (
 	"log"
 	"os"
 
-	"github.com/AlphaTechini/doc-fetch/pkg/fetcher"
+	"github.com/AlphaTechini/doc-fetch/v2/pkg/fetcher"
 )
 
 var version = "dev"

@@ -1,4 +1,4 @@
-module github.com/AlphaTechini/doc-fetch
+module github.com/AlphaTechini/doc-fetch/v2
 
 go 1.24.0
 
