@@ -351,8 +351,7 @@ Stay tuned!
 	<footer class="site-footer">
 		<div class="footer-content">
 			<div class="footer-left">
-				<p>Built with ❤️ for AI developers who deserve better documentation access</p>
-				<p class="copyright">&copy; 2026 AlphaTechini. MIT License.</p>
+				<p class="copyright">&copy; 2026 AlphaTechini.</p>
 			</div>
 			<div class="footer-right">
 				<a href="https://github.com/AlphaTechini/doc-fetch" target="_blank" rel="noopener noreferrer">GitHub</a>

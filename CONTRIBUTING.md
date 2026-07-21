@@ -252,12 +252,6 @@ Looking for ways to contribute? Here are some ideas:
 
 ---
 
-## 📜 License
-
-By contributing to DocFetch, you agree that your contributions will be licensed under the MIT License.
-
----
-
 ## ❓ Questions?
 
 - **General questions**: Open a discussion on GitHub

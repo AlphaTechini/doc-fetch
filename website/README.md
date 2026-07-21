@@ -69,7 +69,3 @@ npm run build
 npm run build
 # Serve `build` folder with any static file server
 ```
-
-## License
-
-MIT

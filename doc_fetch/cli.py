@@ -53,7 +53,7 @@ def download_binary():
     BIN_DIR.mkdir(exist_ok=True)
     
     # URL for the binary
-    url = f"https://github.com/AlphaTechini/doc-fetch/releases/download/v2.5.8/{binary_name}"
+    url = f"https://github.com/AlphaTechini/doc-fetch/releases/download/v2.5.9/{binary_name}"
     
     print(f"📥 Downloading doc-fetch binary for {platform.system()} {platform.machine()}...")
     print(f"   URL: {url}")

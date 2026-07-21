@@ -19,8 +19,16 @@ func main() {
 	concurrent := flag.Int("concurrent", 5, "Concurrent fetchers (default: 5)")
 	userAgent := flag.String("user-agent", "DocFetch/1.0", "Custom user agent")
 	llmTxt := flag.Bool("llm-txt", false, "Generate llm.txt index file")
+	doctorFlag := flag.Bool("doctor", false, "Check for duplicate global installations")
 
 	flag.Parse()
+
+	if *doctorFlag {
+		runDoctor()
+		return
+	}
+
+	warnIfOutdated(version)
 
 	if *versionFlag {
 		fmt.Printf("doc-fetch version %s\n", version)

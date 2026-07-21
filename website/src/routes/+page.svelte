@@ -124,7 +124,7 @@
 					<span class="dot yellow"></span>
 					<span class="dot green"></span>
 				</div>
-				<pre><code>$ npm install -g doc-fetch
+				<pre><code>$ npm install -g doc-fetch-cli
 $ doc-fetch --url https://react.dev/learn --output docs.md --llm-txt</code></pre>
 			</div>
 			
@@ -134,10 +134,9 @@ $ doc-fetch --url https://react.dev/learn --output docs.md --llm-txt</code></pre
 			</div>
 			
 			<div class="badges">
-				<img src="https://img.shields.io/npm/v/doc-fetch?style=flat-square" alt="npm version" />
+				<img src="https://img.shields.io/npm/v/doc-fetch-cli?style=flat-square" alt="npm version" />
 				<img src="https://img.shields.io/pypi/v/doc-fetch?style=flat-square" alt="PyPI version" />
 				<img src="https://img.shields.io/badge/go-module-blue?style=flat-square" alt="Go module" />
-				<img src="https://img.shields.io/npm/l/doc-fetch?style=flat-square" alt="License" />
 			</div>
 		</section>
 
@@ -406,8 +405,7 @@ HTTP client/server implementation.</code></pre>
 	<footer>
 		<div class="footer-content">
 			<div class="footer-left">
-				<p>Built with ❤️ for AI developers who deserve better documentation access</p>
-				<p class="copyright">&copy; 2026 AlphaTechini. MIT License.</p>
+				<p class="copyright">&copy; 2026 AlphaTechini.</p>
 			</div>
 			<div class="footer-right">
 				<a href="https://github.com/AlphaTechini/doc-fetch" target="_blank" rel="noopener noreferrer">GitHub</a>

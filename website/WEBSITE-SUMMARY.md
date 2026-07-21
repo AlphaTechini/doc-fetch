@@ -59,7 +59,6 @@ A **classic, high-signal landing page** for DocFetch using SvelteKit - no AI-gen
 - NPM version badge
 - PyPI version badge
 - Go module badge
-- License badge
 - All from shields.io (auto-updating)
 
 ### ✅ Developer Experience
@@ -225,7 +224,6 @@ JSON-LD markup includes:
 ## Credits
 
 **Built by**: AlphaTechini  
-**License**: MIT  
 **Repository**: https://github.com/AlphaTechini/doc-fetch
 
 ---

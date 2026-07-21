@@ -4,15 +4,13 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "doc-fetch"
-version = "2.5.8"
+version = "2.5.9"
 description = "Dynamic documentation fetching CLI that converts entire documentation sites to single markdown files for AI/LLM consumption"
 readme = "README.md"
 authors = [{name = "AlphaTechini", email = "rehobothokoibu@gmail.com"}]
-license = {text = "MIT"}
 classifiers = [
     "Development Status :: 5 - Production/Stable",
     "Intended Audience :: Developers",
-    "License :: OSI Approved :: MIT License",
     "Operating System :: OS Independent",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.8",

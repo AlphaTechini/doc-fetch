@@ -3,6 +3,18 @@
 ## Installation
 
 ```bash
+pip install --upgrade doc-fetch
+```
+
+```bash
+pnpm add --global doc-fetch-cli
+```
+
+```bash
+npm install -g doc-fetch-cli
+```
+
+```bash
 # Clone the repository
 git clone https://github.com/AlphaTechini/doc-fetch.git
 cd doc-fetch
@@ -13,6 +25,15 @@ go build -o doc-fetch ./cmd/docfetch
 # Or install directly
 go install github.com/AlphaTechini/doc-fetch/cmd/docfetch@latest
 ```
+
+Use one global JavaScript package manager for DocFetch. If an older global installation may still be present, run:
+
+```bash
+doc-fetch --version
+doc-fetch --doctor
+```
+
+`--doctor` reports duplicate command shims and prints the package-manager command to remove a stale installation. It does not modify installations automatically.
 
 ## Basic Usage
 

@@ -277,6 +277,5 @@ Special thanks to the community for reporting issues and providing feedback that
 
 ---
 
-**Built with ❤️ for better documentation experiences**  
 **Version**: 2.0.0  
 **Release**: February 20, 2026

@@ -34,14 +34,20 @@ Most AIs can't navigate documentation like humans do. They can't scroll through 
 
 ## 📦 Installation
 
-### PyPI (Recommended for Python developers) ✨ NEW
+### PyPI
 ```bash
-pip install doc-fetch
+pip install --upgrade doc-fetch
 ```
 
-### NPM (Recommended for JavaScript/Node.js developers)
+### npm or pnpm
+Use one global package manager for DocFetch.
+
 ```bash
 npm install -g doc-fetch-cli
+```
+
+```bash
+pnpm add --global doc-fetch-cli
 ```
 
 ### Go (For Go developers)
@@ -51,6 +57,14 @@ go install github.com/AlphaTechini/doc-fetch/cmd/docfetch@latest
 
 ### Direct Binary Download
 Visit [Releases](https://github.com/AlphaTechini/doc-fetch/releases) and download your platform's binary.
+
+### Verify And Diagnose
+```bash
+doc-fetch --version
+doc-fetch --doctor
+```
+
+`--doctor` lists duplicate global command shims and prints the package-manager command to remove a stale installation. It does not modify installations automatically.
 
 ## 🎯 Usage
 
@@ -84,6 +98,8 @@ doc-fetch \
 | `--concurrent` | Number of concurrent workers | `5` |
 | `--llm-txt` | Generate AI-friendly llm.txt index | `false` |
 | `--user-agent` | Custom user agent string | `DocFetch/1.0` |
+| `--version` | Show the installed binary version | - |
+| `--doctor` | Find duplicate global command shims | - |
 
 **Note**: Short flags (e.g., `-c`, `-d`) have been removed for clarity. Use full flag names only.
 
@@ -226,11 +242,3 @@ Traditional documentation sites are designed for **human navigation**, not **AI 
 ## 🤝 Contributing
 
 Contributions are welcome! Please open an issue or pull request on GitHub.
-
-## 📄 License
-
-MIT License
-
----
-
-**Built with ❤️ for AI developers who deserve better documentation access**
