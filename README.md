@@ -62,9 +62,10 @@ Visit [Releases](https://github.com/AlphaTechini/doc-fetch/releases) and downloa
 ```bash
 doc-fetch --version
 doc-fetch --doctor
+doc-fetch --fix
 ```
 
-`--doctor` lists duplicate global command shims and prints the package-manager command to remove a stale installation. It does not modify installations automatically.
+`--doctor` lists duplicate global command shims. `--fix` keeps the first PATH match, prompts before removing later npm or pnpm installations, and supports `--fix --yes` for explicit non-interactive cleanup.
 
 ## 🎯 Usage
 
@@ -100,6 +101,8 @@ doc-fetch \
 | `--user-agent` | Custom user agent string | `DocFetch/1.0` |
 | `--version` | Show the installed binary version | - |
 | `--doctor` | Find duplicate global command shims | - |
+| `--fix` | Remove stale npm or pnpm installations after confirmation | - |
+| `--yes` | Skip the `--fix` confirmation prompt | - |
 
 **Note**: Short flags (e.g., `-c`, `-d`) have been removed for clarity. Use full flag names only.
 

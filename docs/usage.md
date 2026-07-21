@@ -31,9 +31,10 @@ Use one global JavaScript package manager for DocFetch. If an older global insta
 ```bash
 doc-fetch --version
 doc-fetch --doctor
+doc-fetch --fix
 ```
 
-`--doctor` reports duplicate command shims and prints the package-manager command to remove a stale installation. It does not modify installations automatically.
+`--doctor` reports duplicate command shims. `--fix` keeps the first PATH match and prompts before removing later npm or pnpm installations. Use `doc-fetch --fix --yes` only when non-interactive cleanup is intended.
 
 ## Basic Usage
 

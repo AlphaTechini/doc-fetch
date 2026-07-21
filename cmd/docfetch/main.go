@@ -20,11 +20,17 @@ func main() {
 	userAgent := flag.String("user-agent", "DocFetch/1.0", "Custom user agent")
 	llmTxt := flag.Bool("llm-txt", false, "Generate llm.txt index file")
 	doctorFlag := flag.Bool("doctor", false, "Check for duplicate global installations")
+	fixFlag := flag.Bool("fix", false, "Remove stale duplicate global installations")
+	yesFlag := flag.Bool("yes", false, "Skip confirmation for --fix")
 
 	flag.Parse()
 
 	if *doctorFlag {
 		runDoctor()
+		return
+	}
+	if *fixFlag {
+		runFix(*yesFlag)
 		return
 	}
 
