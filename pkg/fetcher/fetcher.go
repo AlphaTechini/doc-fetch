@@ -2,6 +2,7 @@ package fetcher
 
 import (
 	"net/url"
+	"time"
 )
 
 // Config holds the fetcher configuration
@@ -12,6 +13,23 @@ type Config struct {
 	Workers        int
 	UserAgent      string
 	GenerateLLMTxt bool
+	Verbose        bool
+	Progress       func(Progress)
+}
+
+// Progress describes the current crawl state.
+type Progress struct {
+	Processed  int
+	Discovered int
+	Failed     int
+}
+
+// Result summarizes a completed crawl.
+type Result struct {
+	Processed  int
+	Discovered int
+	Failed     int
+	Elapsed    time.Duration
 }
 
 // LLMTxtEntry represents a single entry in llm.txt

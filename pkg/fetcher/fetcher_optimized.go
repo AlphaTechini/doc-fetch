@@ -35,21 +35,26 @@ type OptimizedFetcher struct {
 	resultsChan chan string      // Results writer channel
 	llmWriter   chan LLMTxtEntry // Incremental llm.txt writer channel
 	baseHost    string           // Hostname of the base URL for domain filtering
-	pageCount   int32
+	processed   int32
+	discovered  int32
 	errorCount  int32
+	firstErrMu  sync.Mutex
+	firstErr    error
 	ctx         context.Context
 	cancel      context.CancelFunc
 	rateLimiter *rate.Limiter // Rate limiting to prevent DDoS
 }
 
-// RunOptimized executes documentation fetching with maximum concurrency
-func RunOptimized(config Config) error {
+// RunOptimized executes documentation fetching with maximum concurrency.
+func RunOptimized(config Config) (Result, error) {
 	if err := ValidateConfig(&config); err != nil {
-		return fmt.Errorf("invalid configuration: %w", err)
+		return Result{}, fmt.Errorf("invalid configuration: %w", err)
 	}
 
-	log.Printf("🚀 Starting HIGH-PERFORMANCE documentation fetch from: %s", config.BaseURL)
-	log.Printf("   Workers: %d | Max Depth: %d | Rate Limit: %d req/sec", config.Workers, config.MaxDepth, config.Workers*2)
+	if config.Verbose {
+		log.Printf("Starting documentation fetch from: %s", config.BaseURL)
+		log.Printf("Workers: %d | Max Depth: %d | Rate Limit: %d req/sec", config.Workers, config.MaxDepth, config.Workers*2)
+	}
 
 	// Parse base host for domain filtering
 	baseHost := ""
@@ -83,23 +88,23 @@ func RunOptimized(config Config) error {
 
 	// Start result writer in background
 	var writeWg sync.WaitGroup
+	var writeErr error
 	if !config.GenerateLLMTxt {
 		writeWg.Add(1)
 		go func() {
 			defer writeWg.Done()
-			if err := writeResultsOptimized(config.OutputPath, resultsChan); err != nil {
-				log.Printf("❌ Error writing results: %v", err)
-			}
+			writeErr = writeResultsOptimized(config.OutputPath, resultsChan)
 		}()
 	}
 
 	// Start incremental llm.txt writer (writes entries as they arrive)
 	var llmWg sync.WaitGroup
+	var llmErr error
 	if config.GenerateLLMTxt {
 		llmWg.Add(1)
 		go func() {
 			defer llmWg.Done()
-			writeLLMTxtStreaming(config.OutputPath, llmWriter)
+			llmErr = writeLLMTxtStreaming(config.OutputPath, llmWriter)
 		}()
 	}
 
@@ -135,17 +140,24 @@ func RunOptimized(config Config) error {
 		llmWg.Wait()
 	}
 
-	elapsed := time.Since(startTime)
-	pagesFetched := atomic.LoadInt32(&fetcher.pageCount)
-	errors := atomic.LoadInt32(&fetcher.errorCount)
+	result := fetcher.result(time.Since(startTime))
+	if writeErr != nil {
+		return result, fmt.Errorf("write output: %w", writeErr)
+	}
+	if llmErr != nil {
+		return result, fmt.Errorf("write llm.txt output: %w", llmErr)
+	}
+	if result.Processed > 0 && result.Failed == result.Processed {
+		if firstErr := fetcher.firstFailure(); firstErr != nil {
+			return result, fmt.Errorf("all %d page requests failed; first error: %w", result.Processed, firstErr)
+		}
+		return result, fmt.Errorf("all %d page requests failed", result.Processed)
+	}
+	if config.Verbose && config.GenerateLLMTxt {
+		log.Printf("LLM.txt written: %s", config.OutputPath)
+	}
 
-	log.Printf("✅ Fetch completed!")
-	log.Printf("   📊 Pages fetched: %d", pagesFetched)
-	log.Printf("   ⏱️  Time elapsed: %v (%.2f pages/sec)", elapsed, float64(pagesFetched)/elapsed.Seconds())
-	log.Printf("   ❌ Errors: %d", errors)
-	log.Printf("💡 Tip: Use --concurrent <N> to adjust parallelism (current: %d)", config.Workers)
-
-	return nil
+	return result, nil
 }
 
 // createOptimizedHTTPClient creates a high-performance HTTP client with connection pooling
@@ -179,7 +191,9 @@ func (f *OptimizedFetcher) worker(id int, wg *sync.WaitGroup, limiter *rate.Limi
 		default:
 			// Wait for rate limiter (be civilized, don't DDoS)
 			if err := limiter.Wait(f.ctx); err != nil {
-				log.Printf("⚠️  Rate limit error: %v", err)
+				f.recordFailure(fmt.Errorf("rate limit: %w", err))
+				f.verbosef("Rate limit error: %v", err)
+				f.completePage(true)
 				f.activeJobs.Done()
 				continue
 			}
@@ -213,6 +227,8 @@ func (f *OptimizedFetcher) submitPage(pageURL string, depth int) {
 	if _, loaded := f.visited.LoadOrStore(pageURL, true); loaded {
 		return
 	}
+	atomic.AddInt32(&f.discovered, 1)
+	f.reportProgress()
 
 	// Submit to job queue via goroutine with context guard to avoid deadlocks
 	f.activeJobs.Add(1)
@@ -227,37 +243,38 @@ func (f *OptimizedFetcher) submitPage(pageURL string, depth int) {
 
 // processURL fetches and processes a single URL
 func (f *OptimizedFetcher) processURL(pageURL string, depth int) {
-	atomic.AddInt32(&f.pageCount, 1)
+	failed := true
+	defer func() { f.completePage(failed) }()
 
 	startTime := time.Now()
 
 	// Validate URL
 	if err := isValidURL(pageURL); err != nil {
-		atomic.AddInt32(&f.errorCount, 1)
-		log.Printf("❌ Invalid URL %s: %v", pageURL, err)
+		f.recordFailure(fmt.Errorf("invalid URL %s: %w", pageURL, err))
+		f.verbosef("Invalid URL %s: %v", pageURL, err)
 		return
 	}
 
 	// Fetch the page
 	resp, err := f.httpClient.Get(pageURL)
 	if err != nil {
-		atomic.AddInt32(&f.errorCount, 1)
-		log.Printf("❌ Error fetching %s: %v", pageURL, err)
+		f.recordFailure(fmt.Errorf("fetch %s: %w", pageURL, err))
+		f.verbosef("Error fetching %s: %v", pageURL, err)
 		return
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != 200 {
-		atomic.AddInt32(&f.errorCount, 1)
-		log.Printf("❌ Non-200 status %d for %s", resp.StatusCode, pageURL)
+		f.recordFailure(fmt.Errorf("fetch %s: HTTP %d", pageURL, resp.StatusCode))
+		f.verbosef("Non-200 status %d for %s", resp.StatusCode, pageURL)
 		return
 	}
 
 	// Parse HTML concurrently
 	doc, err := goquery.NewDocumentFromReader(resp.Body)
 	if err != nil {
-		atomic.AddInt32(&f.errorCount, 1)
-		log.Printf("❌ Error parsing HTML for %s: %v", pageURL, err)
+		f.recordFailure(fmt.Errorf("parse HTML from %s: %w", pageURL, err))
+		f.verbosef("Error parsing HTML for %s: %v", pageURL, err)
 		return
 	}
 
@@ -303,7 +320,7 @@ func (f *OptimizedFetcher) processURL(pageURL string, depth int) {
 		}
 		f.resultsChan <- fmt.Sprintf("%s\t%s\t%s", pageURL, title, content)
 	} else if strings.TrimSpace(content) == "" {
-		log.Printf("⚠️  No content found for %s", pageURL)
+		f.verbosef("No content found for %s", pageURL)
 	}
 
 	// Add to llm.txt entries if requested
@@ -354,7 +371,56 @@ func (f *OptimizedFetcher) processURL(pageURL string, depth int) {
 	}
 
 	elapsed := time.Since(startTime)
-	log.Printf("✅ Fetched %s (%.2fs)", pageURL, elapsed.Seconds())
+	failed = false
+	f.verbosef("Fetched %s (%.2fs)", pageURL, elapsed.Seconds())
+}
+
+func (f *OptimizedFetcher) completePage(failed bool) {
+	if failed {
+		atomic.AddInt32(&f.errorCount, 1)
+	}
+	atomic.AddInt32(&f.processed, 1)
+	f.reportProgress()
+}
+
+func (f *OptimizedFetcher) reportProgress() {
+	if f.config.Progress == nil {
+		return
+	}
+	f.config.Progress(Progress{
+		Processed:  int(atomic.LoadInt32(&f.processed)),
+		Discovered: int(atomic.LoadInt32(&f.discovered)),
+		Failed:     int(atomic.LoadInt32(&f.errorCount)),
+	})
+}
+
+func (f *OptimizedFetcher) result(elapsed time.Duration) Result {
+	return Result{
+		Processed:  int(atomic.LoadInt32(&f.processed)),
+		Discovered: int(atomic.LoadInt32(&f.discovered)),
+		Failed:     int(atomic.LoadInt32(&f.errorCount)),
+		Elapsed:    elapsed,
+	}
+}
+
+func (f *OptimizedFetcher) recordFailure(err error) {
+	f.firstErrMu.Lock()
+	defer f.firstErrMu.Unlock()
+	if f.firstErr == nil {
+		f.firstErr = err
+	}
+}
+
+func (f *OptimizedFetcher) firstFailure() error {
+	f.firstErrMu.Lock()
+	defer f.firstErrMu.Unlock()
+	return f.firstErr
+}
+
+func (f *OptimizedFetcher) verbosef(format string, args ...any) {
+	if f.config.Verbose {
+		log.Printf(format, args...)
+	}
 }
 
 // findLinkTextForURL finds the anchor text for a given URL in the document
@@ -455,16 +521,22 @@ func isSameDomain(rawURL string, baseHost string) bool {
 }
 
 // writeLLMTxtStreaming reads llm.txt entries from a channel and writes them to disk incrementally
-func writeLLMTxtStreaming(outputPath string, entriesChan <-chan LLMTxtEntry) {
+func writeLLMTxtStreaming(outputPath string, entriesChan <-chan LLMTxtEntry) error {
 	file, err := os.Create(outputPath)
 	if err != nil {
-		log.Printf("❌ Failed to create llm.txt file: %v", err)
-		return
+		for range entriesChan {
+		}
+		return err
 	}
 	defer file.Close()
 
-	file.WriteString("# llm.txt - Documentation URL Index\n")
-	file.WriteString("# Generated by DocFetch - List of discovered documentation URLs\n\n")
+	var writeErr error
+	if _, err := file.WriteString("# llm.txt - Documentation URL Index\n"); err != nil && writeErr == nil {
+		writeErr = err
+	}
+	if _, err := file.WriteString("# Generated by DocFetch - List of discovered documentation URLs\n\n"); err != nil && writeErr == nil {
+		writeErr = err
+	}
 
 	seenURLs := make(map[string]bool)
 
@@ -488,18 +560,24 @@ func writeLLMTxtStreaming(outputPath string, entriesChan <-chan LLMTxtEntry) {
 			cleanDesc = ""
 		}
 
+		if writeErr != nil {
+			continue
+		}
 		if cleanText != "" {
 			if cleanDesc != "" {
-				fmt.Fprintf(file, "[%s](%s): %s\n", cleanText, entry.URL, cleanDesc)
+				_, err = fmt.Fprintf(file, "[%s](%s): %s\n", cleanText, entry.URL, cleanDesc)
 			} else {
-				fmt.Fprintf(file, "[%s](%s)\n", cleanText, entry.URL)
+				_, err = fmt.Fprintf(file, "[%s](%s)\n", cleanText, entry.URL)
 			}
 		} else {
-			fmt.Fprintf(file, "%s\n", entry.URL)
+			_, err = fmt.Fprintf(file, "%s\n", entry.URL)
+		}
+		if err != nil {
+			writeErr = err
 		}
 	}
 
-	log.Printf("📝 LLM.txt written: %s (%d entries)", outputPath, len(seenURLs))
+	return writeErr
 }
 
 // extractAnchorContent finds the element targeted by a fragment ID and returns

@@ -8,3 +8,10 @@
 - Release binaries receive the tag version through Go linker flags; source builds report `dev`.
 - Releases remain drafts until the native Intel and Apple Silicon macOS binary checks pass.
 - Existing tag-triggered npm and PyPI workflows publish their packages independently.
+
+## CLI Output
+
+- Crawls use a single live progress line by default and one final summary.
+- Redirected output omits animation and prints the final summary only.
+- `-v` and `--verbose` enable detailed per-page logs.
+- Fatal errors always remain visible and return a nonzero exit code.

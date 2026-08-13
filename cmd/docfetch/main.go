@@ -12,6 +12,7 @@ import (
 var version = "dev"
 
 func main() {
+	log.SetFlags(0)
 	versionFlag := flag.Bool("version", false, "Show version")
 	url := flag.String("url", "", "Base URL to fetch documentation from")
 	output := flag.String("output", "docs.md", "Output file path")
@@ -22,6 +23,9 @@ func main() {
 	doctorFlag := flag.Bool("doctor", false, "Check for duplicate global installations")
 	fixFlag := flag.Bool("fix", false, "Remove stale duplicate global installations")
 	yesFlag := flag.Bool("yes", false, "Skip confirmation for --fix")
+	var verbose bool
+	flag.BoolVar(&verbose, "v", false, "Show detailed crawl output")
+	flag.BoolVar(&verbose, "verbose", false, "Show detailed crawl output")
 
 	flag.Parse()
 
@@ -68,21 +72,30 @@ func main() {
 		Workers:        *concurrent,
 		UserAgent:      *userAgent,
 		GenerateLLMTxt: *llmTxt,
+		Verbose:        verbose,
 	}
 
 	if err := fetcher.ValidateConfig(&config); err != nil {
 		log.Fatalf("Configuration error: %v", err)
 	}
 
-	// Use optimized high-performance fetcher
-	err := fetcher.RunOptimized(config)
+	display := newProgressDisplay(config.BaseURL, !verbose)
+	config.Progress = display.Update
+	display.Start()
+	result, err := fetcher.RunOptimized(config)
+	display.Stop()
 	if err != nil {
 		log.Fatalf("Failed to fetch documentation: %v", err)
 	}
 
-	if *llmTxt {
-		log.Printf("LLM.txt index generated: %s", *output)
-	} else {
-		log.Printf("Documentation successfully saved to %s", *output)
+	failureSummary := ""
+	if result.Failed > 0 {
+		failureSummary = fmt.Sprintf(" (%d failed)", result.Failed)
 	}
+	pageLabel := "pages"
+	if result.Processed == 1 {
+		pageLabel = "page"
+	}
+	fmt.Printf("Processed %d %s in %.1fs%s. Saved to %s.\n",
+		result.Processed, pageLabel, result.Elapsed.Seconds(), failureSummary, *output)
 }

@@ -38,6 +38,8 @@ doc-fetch --fix
 
 ## Basic Usage
 
+Interactive crawls use a single updating progress line. Redirected output prints only the final summary. Add `-v` or `--verbose` for detailed per-page output. Fatal errors are always shown.
+
 ```bash
 # Fetch documentation from a URL to a markdown file
 doc-fetch --url https://golang.org/doc/ --output docs.md
@@ -57,6 +59,9 @@ doc-fetch --url https://docs.example.com --output docs.md --concurrent 5
 
 # Custom user agent
 doc-fetch --url https://docs.example.com --output docs.md --user-agent "MyBot/1.0"
+
+# Show detailed per-page crawl output
+doc-fetch --url https://docs.example.com --output docs.md -v
 ```
 
 ## Supported Documentation Sites

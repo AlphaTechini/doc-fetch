@@ -78,6 +78,8 @@ doc-fetch --url https://go.dev/doc/ --output ./docs/golang-full.md
 doc-fetch --url https://react.dev/learn --output docs.md --llm-txt
 ```
 
+Interactive crawls use a single updating progress line. Redirected output prints only the final summary. Use `-v` or `--verbose` to show per-page successes, warnings, and failures.
+
 ### Advanced Usage
 ```bash
 # Comprehensive documentation fetch with all features
@@ -103,8 +105,9 @@ doc-fetch \
 | `--doctor` | Find duplicate global command shims | - |
 | `--fix` | Remove stale npm or pnpm installations after confirmation | - |
 | `--yes` | Skip the `--fix` confirmation prompt | - |
+| `-v`, `--verbose` | Show detailed per-page crawl output | `false` |
 
-**Note**: Short flags (e.g., `-c`, `-d`) have been removed for clarity. Use full flag names only.
+**Note**: `-v` is the only supported short flag. Use full names for all other options.
 
 ## ⚡ Advanced Tips for Large Documentation Sites
 
